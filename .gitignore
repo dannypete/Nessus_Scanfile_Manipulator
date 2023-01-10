@@ -131,3 +131,4 @@ dmypy.json
 # Custom
 .vscode
 resources
+plugins/__pycache__
