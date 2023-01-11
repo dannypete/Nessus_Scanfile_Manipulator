@@ -1,6 +1,5 @@
 import ipaddress
 import logging
-import sys
 
 import xml.etree.ElementTree as ET
 
@@ -10,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def insert_subparser(subparser):
-    arg_parser = subparser.add_parser(PLUGIN_NAME, help="Print information about hosts present in the Nessus scan file")
+    arg_parser = subparser.add_parser(PLUGIN_NAME, help="Print information about hosts present in the Nessus scan file. Default action: print host details")
     arg_parser.set_defaults(handler=handle)
     arg_parser.set_defaults(parser=PLUGIN_NAME)
 
@@ -103,9 +102,4 @@ def get_ports_by_host(args):
 
     return "\n".join(sorted_res)
 
-def get_vuln_count_by_socket_address(args):
-    pass
-
-def get_vuln_count_by_host(args):
-    pass
 
