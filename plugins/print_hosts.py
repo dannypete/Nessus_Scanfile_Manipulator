@@ -15,15 +15,15 @@ def insert_subparser(subparser):
     arg_parser.set_defaults(parser=PLUGIN_NAME)
 
     mutual_ex_parser = arg_parser.add_mutually_exclusive_group()
-    mutual_ex_parser.add_argument("--print-host-details", help="Print data about each host", action="store_true")
+    mutual_ex_parser.add_argument("--host-details", help="Print data about each host", action="store_true")
     mutual_ex_parser.add_argument("--socket-addrs", help="Print all socket addresses (i.e. \"10.20.30.40:8080\")", action="store_true")
-    mutual_ex_parser.add_argument("--host-ports", help="Print open ports per host (e.g. \"10.20.30.40: 443,8080\")", action="store_true")
+    mutual_ex_parser.add_argument("--host-ports", help="Print open ports per host (e.g. \"10.20.30.40: UDP/137,TCP/443,TCP/8080\")", action="store_true")
 
 def handle(args):
-    if args.print_host_details:
+    if args.host_details:
         res = get_host_details(args)
 
-    if args.socket_addrs:
+    elif args.socket_addrs:
         res = get_socket_addresses(args)
 
     elif args.host_ports:
@@ -49,9 +49,9 @@ def get_host_details(args):
         host_res = f"Report Host Name: {ip}\n"
         for k in sorted(tags.keys()):
             host_res += f"\t{k}: {tags[k]}\n"
-        res["ip"] = host_res
+        res[ip] = host_res
 
-    sorted_res = [res[k] for k in sorted(res.keys(), key=lambda x: ipaddress.ip_address(ip))]
+    sorted_res = [res[k] for k in sorted(res.keys(), key=lambda x: ipaddress.ip_address(x))]
     return "\n".join(sorted_res)
 
 def get_socket_addresses(args):
