@@ -48,7 +48,7 @@ def get_unique_vulns(args):
         hostprops = host.find("HostProperties")
         _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
-        name = _fqdn if args.by_fqdn else _ip  # custom behavior here so it is more understandable in the output
+        name = _fqdn if (args.by_fqdn and _fqdn is not None) else _ip  # custom behavior here so it is more understandable in the output
         for finding in host.iter("ReportItem"):
             port = finding.get("port")
             plugin_id = finding.get("pluginID")
