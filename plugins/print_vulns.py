@@ -1,4 +1,3 @@
-import ipaddress
 import logging
 
 import xml.etree.ElementTree as ET
@@ -18,6 +17,10 @@ def insert_subparser(subparser):
     mutual_ex_parser.add_argument("--unique", help="Print unique vulnerabilities (by Finding Name)", action="store_true", default=False)
     mutual_ex_parser.add_argument("--all", help="Print all vulnerabilities", action="store_true", default=False)
     mutual_ex_parser.add_argument("--by-host", help="Print all vulnerabilities grouped by host", action="store_true", default=False)
+
+    mutual_ex_parser2 = arg_parser.add_mutually_exclusive_group()
+    mutual_ex_parser2.add_argument("--by-ip", help="Designate hosts by their IP only", action="store_true", default=False)
+    mutual_ex_parser2.add_argument("--by-fqdn", help="Designate hosts by FQDN only (falls back to IP no FQDN reported)", action="store_true", default=False)
 
 def handle(args):
     if args.unique:
@@ -41,7 +44,10 @@ def get_unique_vulns(args):
 
     res = dict()
     for host in root.iter("ReportHost"):
-        ip = host.get("name")
+        hostprops = host.find("HostProperties")
+        _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
+        _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
+        name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
         for finding in host.iter("ReportItem"):
             port = finding.get("port")
             plugin_id = finding.get("pluginID")
@@ -49,7 +55,7 @@ def get_unique_vulns(args):
             severity = finding.get("severity")
 
             if plugin_name in res:
-                res[plugin_name]["affected_hosts"].add(f"{ip}{':' + port if int(port) != 0 else ''}")
+                res[plugin_name]["affected_hosts"].add(f"{name}{':' + port if int(port) != 0 else ''}")
                 res[plugin_name]["severities"].add(int(severity))
             
             else:
@@ -64,7 +70,7 @@ def get_unique_vulns(args):
                     "solution": solution,
                     "risk": risk,
                     "severities": set([int(severity)]),
-                    "affected_hosts": set([f"{ip}{':' + port if int(port) != 0 else ''}"])
+                    "affected_hosts": set([f"{name}{':' + port if int(port) != 0 else ''}"])
                 }
 
     sorted_keys = sorted(res.keys(), key=lambda x: (-max(res[x]["severities"]), x))
@@ -80,7 +86,10 @@ def get_vulns_per_host(args):
 
     res = dict()
     for host in root.iter("ReportHost"):
-        ip = host.get("name")
+        hostprops = host.find("HostProperties")
+        _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
+        _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
+        name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
         findings = list()
         for finding in host.iter("ReportItem"):
             port = finding.get("port")
@@ -96,7 +105,7 @@ def get_vulns_per_host(args):
                 "protocol": protocol,
                 "service": service
             })
-        res[ip] = findings
+        res[name] = findings
 
     sorted_host_keys = sorted(res.keys())
     sorted_res = []
@@ -115,7 +124,10 @@ def get_all_vulns(args):
 
     res = list()
     for host in root.iter("ReportHost"):
-        ip = host.get("name")
+        hostprops = host.find("HostProperties")
+        _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
+        _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
+        name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
         for finding in host.iter("ReportItem"):
             port = finding.get("port")
             protocol = finding.get("protocol")
@@ -129,12 +141,21 @@ def get_all_vulns(args):
                 "port": int(port),
                 "protocol": protocol,
                 "service": service,
-                "ip": ip
+                "ip": _ip,
+                "fqdn": _fqdn,
+                "name": name
             })
 
     sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], x['ip'], x['port']))
     final_res = ""
     for finding in sorted_res:
-        final_res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" Host=\"{finding['ip']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\"\n"
+        final_res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" Host=\"{finding['name']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\"\n"
 
-    return final_res        
+    return final_res
+
+def get_host_displayname(ip, fqdn, by_ip, by_fqdn):
+    if by_ip:
+        return ip
+    elif by_fqdn:
+        return fqdn or ip
+    return f"{ip} ({fqdn})"
