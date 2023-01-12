@@ -1,3 +1,4 @@
+import ipaddress
 import logging
 
 import xml.etree.ElementTree as ET
@@ -47,7 +48,7 @@ def get_unique_vulns(args):
         hostprops = host.find("HostProperties")
         _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
-        name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
+        name = _fqdn if args.by_fqdn else _ip  # custom behavior here so it is more understandable in the output
         for finding in host.iter("ReportItem"):
             port = finding.get("port")
             plugin_id = finding.get("pluginID")
@@ -76,7 +77,10 @@ def get_unique_vulns(args):
     sorted_keys = sorted(res.keys(), key=lambda x: (-max(res[x]["severities"]), x))
     sorted_res = []
     for k in sorted_keys:
-        sorted_res.append(f"Plugin Name: {k}\nSeverities: {sorted(res[k]['severities'], reverse=True)}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts']))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
+        if args.by_ip:
+            sorted_res.append(f"Plugin Name: {k}\nSeverities: {sorted(res[k]['severities'], reverse=True)}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts'], key=lambda x: ipaddress.ip_address(x.split(':')[0])))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
+        else:
+            sorted_res.append(f"Plugin Name: {k}\nSeverities: {sorted(res[k]['severities'], reverse=True)}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts']))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
 
     return "\n".join(sorted_res)
 
@@ -146,7 +150,10 @@ def get_all_vulns(args):
                 "name": name
             })
 
-    sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], x['ip'], x['port']))
+    if args.by_ip:
+        sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], ipaddress.ip_address(x['ip']), x['port']))
+    else:
+        sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], x['ip'], x['port']))
     final_res = ""
     for finding in sorted_res:
         final_res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" Host=\"{finding['name']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\"\n"
@@ -157,5 +164,7 @@ def get_host_displayname(ip, fqdn, by_ip, by_fqdn):
     if by_ip:
         return ip
     elif by_fqdn:
+        if fqdn is None:
+            logger.debug(f"User specified host FQDN designation, but host {ip} did not have a FQDN. Falling back to its IP")
         return fqdn or ip
     return f"{ip} ({fqdn})"
