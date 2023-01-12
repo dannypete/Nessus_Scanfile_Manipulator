@@ -3,6 +3,8 @@ import logging
 
 import xml.etree.ElementTree as ET
 
+from common.utils import get_nessus_hostproperty_by_name
+
 PLUGIN_NAME = __name__.rsplit(".", 1)[1]
 
 logger = logging.getLogger(__name__)
@@ -68,7 +70,7 @@ def get_unique_vulns(args):
     sorted_keys = sorted(res.keys(), key=lambda x: (-max(res[x]["severities"]), x))
     sorted_res = []
     for k in sorted_keys:
-        sorted_res.append(f"Plugin Name: {k}\nSeverities: {sorted(res[k]['severities'], reverse=True)}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts'], key=lambda x: ipaddress.ip_address(x.split(':')[0])))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
+        sorted_res.append(f"Plugin Name: {k}\nSeverities: {sorted(res[k]['severities'], reverse=True)}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts']))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
 
     return "\n".join(sorted_res)
 
@@ -96,7 +98,7 @@ def get_vulns_per_host(args):
             })
         res[ip] = findings
 
-    sorted_host_keys = sorted(res.keys(), key=lambda x: ipaddress.ip_address(x))
+    sorted_host_keys = sorted(res.keys())
     sorted_res = []
     for k in sorted_host_keys:
         sorted_host_findings = sorted(res[k], key=lambda x: (-x["severity"], x["plugin_name"]))
@@ -130,7 +132,7 @@ def get_all_vulns(args):
                 "ip": ip
             })
 
-    sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], ipaddress.ip_address(x['ip']), x['port']))
+    sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], x['ip'], x['port']))
     final_res = ""
     for finding in sorted_res:
         final_res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" Host=\"{finding['ip']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\"\n"
