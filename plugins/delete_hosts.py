@@ -61,23 +61,21 @@ def handle(args):
             logger.debug(f"HostProperty tag named \"{remove_by}\" not found for host named \"{host_name}\", therefore there is not a match.")
             continue
 
-        for fv in filter_value_list:
-            values_match = determine_match(remove_by, fv, host_value, case_sensitive, full_match)
-            match = values_match if not negate else not values_match
-            if dry_run and match:
-                hostproperties_node = host.find("HostProperties")
-                cpe = get_nessus_hostproperty_by_name(hostproperties_node, FilterParameters.cpe.value, "None Reported")
-                rdns = get_nessus_hostproperty_by_name(hostproperties_node, "host-rdns", "None Reported")
-                msg = f"Host named \"{host_name}\" (primary CPE='{cpe}';  RDNS='{rdns}') would have been removed using provided filter"
-                print(msg)
-                dry_run_res.append(msg)
+        any_match = check_hostvalue_in_fvlist(remove_by, filter_value_list, host_value, case_sensitive, full_match, negate)
+        if any_match and dry_run:
+            hostproperties_node = host.find("HostProperties")
+            cpe = get_nessus_hostproperty_by_name(hostproperties_node, FilterParameters.cpe.value, "None Reported")
+            rdns = get_nessus_hostproperty_by_name(hostproperties_node, "host-rdns", "None Reported")
+            msg = f"Host named \"{host_name}\" (primary CPE='{cpe}';  RDNS='{rdns}') would have been removed using provided filter"
+            print(msg)
+            dry_run_res.append(msg)
 
-            elif match:
-                parent = root.find("Report")
-                parent.remove(host)
+        elif any_match:
+            parent = root.find("Report")
+            parent.remove(host)        
 
     if dry_run:
-        logger.debug("Not outputting resulting XML because --dry-run flag was used")
+        logger.warn("Not outputting resulting XML because --dry-run flag was used")
         return "\n".join(dry_run_res)
     else:
         newroot = ET.ElementTree(root)
@@ -88,13 +86,24 @@ def handle(args):
             print(result)
         return result
 
+def check_hostvalue_in_fvlist(remove_by, filter_value_list, host_value, case_sensitive, full_match, negate):
+    for fv in filter_value_list:
+            values_match = determine_match(remove_by, fv, host_value, case_sensitive, full_match)
+            match = values_match if not negate else not values_match
+            if match:
+                return True
+    return False
+
 def determine_match(remove_by, filter_value, host_value, case_sensitive, full_match):
     logger.debug(f"Determining if '{host_value}' {'fully matches' if full_match else 'partially matches'} '{filter_value}' {'with case-sensitivity' if case_sensitive else ''} with filter logic for {remove_by}.")
-    if full_match:
-        if remove_by == FilterParameters.ip.value:
-            logger.warn("'Full match' and/or 'case sensitive' flags don't have any effect on IP filters")
-            values_match = ipaddress.ip_network(host_value, strict=False) == ipaddress.ip_network(filter_value)
-        elif remove_by == FilterParameters.was_credential_scanned.value:
+
+    if remove_by == FilterParameters.ip.value:
+            if case_sensitive or full_match:
+                logger.warn("'Full match' and/or 'case sensitive' flags don't have any effect on IP filters")
+            values_match = ipaddress.ip_address(host_value) in ipaddress.ip_network(filter_value, strict=False)
+
+    elif full_match:
+        if remove_by == FilterParameters.was_credential_scanned.value:
             logger.warn("'Full match' and/or 'case sensitive' flags don't have any effect on bool-valued filters")
             values_match = strtobool(host_value) == strtobool(filter_value)
         elif case_sensitive:
@@ -103,9 +112,7 @@ def determine_match(remove_by, filter_value, host_value, case_sensitive, full_ma
             values_match = host_value.lower() == filter_value.lower()
 
     else:
-        if remove_by == FilterParameters.ip.value:
-            values_match = ipaddress.ip_network(host_value, strict=False) in ipaddress.ip_network(filter_value)
-        elif remove_by == FilterParameters.was_credential_scanned.value:
+        if remove_by == FilterParameters.was_credential_scanned.value:
             values_match = strtobool(host_value) == strtobool(filter_value)
         elif case_sensitive: 
             values_match = filter_value in host_value 
