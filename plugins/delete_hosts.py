@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 class FilterParameters(Enum):
     ip = "host-ip"
+    fqdn = "host-fqdn"
     was_credential_scanned = "Credentialed_Scan"
     cpe = "cpe"
-    os = "operating-system"
     mac_address = "mac-address"
     nb_name = "netbios-name"
 
