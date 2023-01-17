@@ -38,7 +38,6 @@ def handle(args):
         logger.info("No action was specified. Defaulting to printing host details.")
         res = get_host_details(args)
 
-    print(res)
     return res
 
 def get_host_details(args):

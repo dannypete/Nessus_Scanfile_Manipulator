@@ -4,7 +4,7 @@ import logging
 import xml.etree.ElementTree as ET
 from enum import Enum
 
-from common.utils import strtobool, get_nessus_hostproperty_by_name
+from common.utils import str_to_bool, get_nessus_hostproperty_by_name
 
 PLUGIN_NAME = __name__.rsplit(".", 1)[1]
 
@@ -84,8 +84,7 @@ def handle(args):
         result = ET.tostring(newroot.getroot(), encoding='unicode')
         if args.output_file:
             logger.warn("Not stdout-printing the resulting XML result since an output file was specified")
-        else: 
-            print(result)
+            return ""
         return result
 
 def check_hostvalue_in_fvlist(remove_by, filter_value_list, host_value, case_sensitive, negate):
@@ -107,7 +106,7 @@ def determine_match(remove_by, filter_value, host_value, case_sensitive):
         else:
             values_match = filter_value.lower() in host_value.lower() 
     elif remove_by == FilterParameters.was_credential_scanned.value:
-        values_match = strtobool(host_value) == strtobool(filter_value)
+        values_match = str_to_bool(host_value) == str_to_bool(filter_value)
     elif case_sensitive:    
         values_match = host_value == filter_value
     else:

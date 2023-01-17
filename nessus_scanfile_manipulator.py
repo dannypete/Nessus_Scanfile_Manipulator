@@ -6,7 +6,7 @@ import sys
 
 import plugins
 
-PLUGINS_DIR = "plugins"
+PACKAGE_DIRS = [__name__, "plugins", "common"]
 
 logger = logging.getLogger(__name__)
 
@@ -29,23 +29,17 @@ if __name__ == "__main__":
 
     if args.debug:
         root_handler.setFormatter(logging.Formatter('[%(levelname)s] %(filename)s:%(lineno)s %(message)s'))
-        plugin_logger = logging.getLogger(PLUGINS_DIR)
-        plugin_logger.setLevel(logging.DEBUG)
-        plugin_logger.addHandler(root_handler)
-
-        main_logger = logging.getLogger(__name__)
-        main_logger.setLevel(logging.DEBUG)
-        main_logger.addHandler(root_handler)
-        
+        log_level = logging.DEBUG        
     elif args.verbose:
         root_handler.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
-        plugin_logger = logging.getLogger(PLUGINS_DIR)
-        plugin_logger.setLevel(logging.INFO)
-        plugin_logger.addHandler(root_handler)
+        log_level = logging.INFO        
+    else:
+        log_level = logging.WARN
 
-        main_logger = logging.getLogger(__name__)
-        main_logger.setLevel(logging.INFO)
-        main_logger.addHandler(root_handler)
+    for package in PACKAGE_DIRS:
+            package_logger = logging.getLogger(package)
+            package_logger.setLevel(log_level)
+            package_logger.addHandler(root_handler)
 
     # TODO check that infile (and outfile, if provided) is readable/writable
 
@@ -56,7 +50,9 @@ if __name__ == "__main__":
         logger.error("No plugin was selected.")
         parser.print_help()
         sys.exit(-1)
+
     result = args.handler(args)
+    print(result)
 
     if args.output_file is not None:
         with open(args.output_file, "w") as out:

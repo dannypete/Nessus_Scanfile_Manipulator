@@ -1,4 +1,9 @@
-def strtobool(val: str) -> bool:
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def str_to_bool(val: str) -> bool:
     val = val.lower()
     if val in ['y', 'yes', 't', 'true', 'on', '1']:
         return True
@@ -15,3 +20,13 @@ def get_nessus_hostproperty_by_name(host_properties_node, tag_name, default_resu
         raise ValueError
     
     return relevant_tag[0]
+
+def get_host_displayname(ip, fqdn, by_ip=False, by_fqdn=False):
+    if by_ip:
+        return ip
+    elif by_fqdn:
+        if fqdn is None:
+            logger.debug(f"User requested host FQDN designation, but host {ip} did not have a FQDN. Falling back to its IP")
+            return ip
+        return fqdn
+    return f"{ip} ({fqdn or 'No FQDN'})"

@@ -3,7 +3,7 @@ import logging
 
 import xml.etree.ElementTree as ET
 
-from common.utils import get_nessus_hostproperty_by_name
+from common.utils import get_nessus_hostproperty_by_name, get_host_displayname
 
 PLUGIN_NAME = __name__.rsplit(".", 1)[1]
 
@@ -36,7 +36,6 @@ def handle(args):
     else:
         res = get_unique_vulns(args)
 
-    print(res)
     return res
 
 def get_unique_vulns(args):
@@ -159,12 +158,3 @@ def get_all_vulns(args):
         final_res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" Host=\"{finding['name']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\"\n"
 
     return final_res
-
-def get_host_displayname(ip, fqdn, by_ip, by_fqdn):
-    if by_ip:
-        return ip
-    elif by_fqdn:
-        if fqdn is None:
-            logger.debug(f"User specified host FQDN designation, but host {ip} did not have a FQDN. Falling back to its IP")
-        return fqdn or ip
-    return f"{ip} ({fqdn})"
