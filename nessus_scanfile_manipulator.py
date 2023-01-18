@@ -52,7 +52,7 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     result = args.handler(args)
-    print(result)
+    # result isn't printed here. each plugin can decide if/what they want printed from their result
 
     if args.output_file is not None:
         with open(args.output_file, "w") as out:

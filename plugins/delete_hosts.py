@@ -1,7 +1,7 @@
 import ipaddress
 import logging
 
-import xml.etree.ElementTree as ET
+import lxml.etree as ET
 from enum import Enum
 
 from common.utils import str_to_bool, get_nessus_hostproperty_by_name
@@ -73,26 +73,25 @@ def handle(args):
             dry_run_res.append(msg)
 
         elif any_match:
-            parent = root.find("Report")
-            parent.remove(host)        
+            host.getparent().remove(host)
 
     if dry_run:
         logger.warn("Not outputting resulting XML because --dry-run flag was used")
         return "\n".join(dry_run_res)
     else:
-        newroot = ET.ElementTree(root)
-        result = ET.tostring(newroot.getroot(), encoding='unicode')
-        if args.output_file:
-            logger.warn("Not stdout-printing the resulting XML result since an output file was specified")
-            return ""
+        result = ET.tostring(root).decode()
+        if args.output_file is None:
+            print(result)
+        else:
+            logger.warn("Not stdout-printing the resulting XML since an output file was specified")
         return result
 
 def check_hostvalue_in_fvlist(remove_by, filter_value_list, host_value, case_sensitive, negate):
     for fv in filter_value_list:
-            values_match = determine_match(remove_by, fv, host_value, case_sensitive)
-            match = values_match if not negate else not values_match
-            if match:
-                return True
+        values_match = determine_match(remove_by, fv, host_value, case_sensitive)
+        match = values_match if not negate else not values_match
+        if match:
+            return True
     return False
 
 def determine_match(remove_by, filter_value, host_value, case_sensitive):

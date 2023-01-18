@@ -1,7 +1,7 @@
 import ipaddress
 import logging
 
-import xml.etree.ElementTree as ET
+import lxml.etree as ET
 
 from common.utils import get_nessus_hostproperty_by_name
 
@@ -38,6 +38,7 @@ def handle(args):
         logger.info("No action was specified. Defaulting to printing host details.")
         res = get_host_details(args)
 
+    print(res)
     return res
 
 def get_host_details(args):

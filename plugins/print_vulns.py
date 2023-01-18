@@ -1,7 +1,7 @@
 import ipaddress
 import logging
 
-import xml.etree.ElementTree as ET
+import lxml.etree as ET
 
 from common.utils import get_nessus_hostproperty_by_name, get_host_displayname
 
@@ -36,6 +36,7 @@ def handle(args):
     else:
         res = get_unique_vulns(args)
 
+    print(res)
     return res
 
 def get_unique_vulns(args):
