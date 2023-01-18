@@ -57,6 +57,6 @@ if __name__ == "__main__":
     if args.output_file is not None:
         with open(args.output_file, "w") as out:
             out.write(result)
-            logger.info(f"Output written to {os.path.abspath(args.output_file)}")
+            logger.warning(f"Output written to {os.path.abspath(args.output_file)}")
     else:
         logger.debug("Not saving output to file as no output path was provided.")

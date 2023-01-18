@@ -45,7 +45,7 @@ def handle(args):
     dry_run = args.dry_run
 
     if case_sensitive and remove_by in (FilterParameters.plugin_id.value, FilterParameters.finding_port.value, FilterParameters.finding_service.value):
-        logger.warn(f"'Case sensitive' flag doesn't have any effect on filter type {remove_by}")
+        logger.warning(f"'Case sensitive' flag doesn't have any effect on filter type {remove_by}")
 
     if args.filter_value:
         filter_value_list = args.filter_value.split(",")
@@ -76,14 +76,14 @@ def handle(args):
                 finding.getparent().remove(finding)
 
     if dry_run:
-        logger.warn("Not outputting resulting XML because --dry-run flag was used")
+        logger.warning("Not outputting resulting XML because --dry-run flag was used")
         return "\n".join(dry_run_res)
     else:
         result = ET.tostring(root).decode()
         if args.output_file is None:
             print(result)
         else:
-            logger.warn("Not stdout-printing the resulting XML since an output file was specified")
+            logger.warning("Not stdout-printing the resulting XML since an output file was specified")
         return result
     
 def check_match_in_fvlist(remove_by, filter_value_list, finding_value, case_sensitive, negate):
