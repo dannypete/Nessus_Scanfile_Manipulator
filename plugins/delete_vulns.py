@@ -4,7 +4,7 @@ import logging
 import lxml.etree as ET
 from enum import Enum
 
-from common.utils import get_nessus_hostproperty_by_name
+from common.utils import get_nessus_hostproperty_by_name, get_xml_context_from_file
 
 PLUGIN_NAME = __name__.rsplit(".", 1)[1]
 
@@ -36,9 +36,6 @@ def insert_subparser(subparser):
     arg_parser.add_argument("--dry-run", help="Do a dry run of the removal, printing some information about any entries that would be removed but not actually outputting the result", required=False, action="store_true")
 
 def handle(args):
-    tree = ET.parse(args.input_file)
-    root = tree.getroot()
-
     remove_by = [fp.value for fp in FilterParameters if fp.name == args.remove_by][0]
     negate = args.negate
     case_sensitive = args.case_sensitive
@@ -54,16 +51,17 @@ def handle(args):
 
     logger.debug(f"Input filter is: \"Finding {remove_by} {'is' if not negate else 'is NOT'} among {filter_value_list}\" (case-sensitive={case_sensitive})")
 
+    context = get_xml_context_from_file(args, tag="ReportHost")
     dry_run_res = []
-    for host in root.iter("ReportHost"):
+    for _, host in context:
         host_name = host.get("name")
-        for finding in host.iter("ReportItem"):
+        for _, finding in ET.iterwalk(host, tag="ReportItem"):
             finding_name = finding.get("pluginName")
             finding_port = finding.get("port")
             finding_svc = finding.get("svc_name")
             finding_value = get_finding_value(host, finding, remove_by, None)
             if finding_value is None:
-                logger.debug(f"Property of finding titled \"{finding_name}\" for host named \"{host_name}\" not found, therefore there is not a match.")
+                logger.debug(f"Filter property \"{remove_by}\" of finding titled \"{finding_name}\" for host named \"{host_name}\" not found, therefore there is not a match.")
                 continue
 
             any_match = check_match_in_fvlist(remove_by, filter_value_list, finding_value, case_sensitive, negate)
@@ -79,7 +77,7 @@ def handle(args):
         logger.warning("Not outputting resulting XML because --dry-run flag was used")
         return "\n".join(dry_run_res)
     else:
-        result = ET.tostring(root).decode()
+        result = ET.tostring(context.root).decode()
         if args.output_file is None:
             print(result)
         else:

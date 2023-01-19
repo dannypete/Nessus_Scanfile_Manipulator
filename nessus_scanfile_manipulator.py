@@ -4,6 +4,8 @@ import logging
 import os
 import sys
 
+sys.stdin
+
 import plugins
 
 PACKAGE_DIRS = [__name__, "plugins", "common"]
@@ -14,7 +16,10 @@ def get_parser():
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--debug", help="Debug output (implies verbose)", required=False, action="store_true", default=False)
     argparser.add_argument("-v", "--verbose", help="More output", required=False, action="store_true", default=False)
-    argparser.add_argument("-i", "--input-file", help="Input .nessus file", required=False, type=str, default=None)
+
+    in_mut_ex_grp = argparser.add_mutually_exclusive_group(required=True)
+    in_mut_ex_grp.add_argument("-i", "--input-file", help="Input .nessus file", type=str, default=None)
+    in_mut_ex_grp.add_argument("--stdin", help="Input file is coming from STDIN", action="store_true", default=False)
     argparser.add_argument("-o", "--output-file", help="Path to write output", required=False, type=str, default=None)
     subparser = argparser.add_subparsers(help="Choose a plugin to use")
 

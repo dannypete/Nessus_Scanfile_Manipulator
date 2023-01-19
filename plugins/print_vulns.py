@@ -3,7 +3,7 @@ import logging
 
 import lxml.etree as ET
 
-from common.utils import get_nessus_hostproperty_by_name, get_host_displayname
+from common.utils import get_nessus_hostproperty_by_name, get_host_displayname, get_xml_context_from_file
 
 PLUGIN_NAME = __name__.rsplit(".", 1)[1]
 
@@ -40,16 +40,14 @@ def handle(args):
     return res
 
 def get_unique_vulns(args):
-    tree = ET.parse(args.input_file)
-    root = tree.getroot()
-
     res = dict()
-    for host in root.iter("ReportHost"):
+    context = get_xml_context_from_file(args, tag="ReportHost")
+    for _, host in context:
         hostprops = host.find("HostProperties")
         _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
         name = _fqdn if (args.by_fqdn and _fqdn is not None) else _ip  # custom behavior here so it is more understandable in the output
-        for finding in host.iter("ReportItem"):
+        for _, finding in ET.iterwalk(host, tag="ReportItem"):
             port = finding.get("port")
             plugin_id = finding.get("pluginID")
             plugin_name = finding.get("pluginName").replace("\n", "\\n")
@@ -73,6 +71,8 @@ def get_unique_vulns(args):
                     "severities": set([int(severity)]),
                     "affected_hosts": set([f"{name}{':' + port if int(port) != 0 else ''}"])
                 }
+                finding.clear()
+            host.clear()
 
     sorted_keys = sorted(res.keys(), key=lambda x: (-max(res[x]["severities"]), x))
     sorted_res = []
@@ -85,17 +85,15 @@ def get_unique_vulns(args):
     return "\n".join(sorted_res)
 
 def get_vulns_per_host(args):
-    tree = ET.parse(args.input_file)
-    root = tree.getroot()
-
     res = dict()
-    for host in root.iter("ReportHost"):
+    context = get_xml_context_from_file(args, tag="ReportHost")
+    for _, host in context:
         hostprops = host.find("HostProperties")
         _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
         name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
         findings = list()
-        for finding in host.iter("ReportItem"):
+        for _, finding in ET.iterwalk(host, tag="ReportItem"):
             port = finding.get("port")
             protocol = finding.get("protocol")
             service = finding.get("svc_name")
@@ -109,7 +107,9 @@ def get_vulns_per_host(args):
                 "protocol": protocol,
                 "service": service
             })
+            finding.clear()
         res[name] = findings
+        host.clear()
 
     sorted_host_keys = sorted(res.keys())
     sorted_res = []
@@ -123,16 +123,14 @@ def get_vulns_per_host(args):
     return "\n".join(sorted_res)
 
 def get_all_vulns(args):
-    tree = ET.parse(args.input_file)
-    root = tree.getroot()
-
     res = list()
-    for host in root.iter("ReportHost"):
+    context = get_xml_context_from_file(args, tag="ReportHost")
+    for _, host in context:
         hostprops = host.find("HostProperties")
         _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
         name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
-        for finding in host.iter("ReportItem"):
+        for _, finding in ET.iterwalk(host, tag="ReportItem"):
             port = finding.get("port")
             protocol = finding.get("protocol")
             service = finding.get("svc_name")
@@ -149,6 +147,8 @@ def get_all_vulns(args):
                 "fqdn": _fqdn,
                 "name": name
             })
+            finding.clear()
+        host.clear()
 
     if args.by_ip:
         sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], ipaddress.ip_address(x['ip']), x['port']))

@@ -1,4 +1,6 @@
 import logging
+import lxml.etree as ET
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -30,3 +32,9 @@ def get_host_displayname(ip, fqdn, by_ip=False, by_fqdn=False):
             return ip
         return fqdn
     return f"{ip} ({fqdn or 'No FQDN'})"
+
+def get_xml_context_from_file(args, tag="ReportHost"):
+    if args.input_file is not None:
+        return ET.iterparse(source=args.input_file, tag=tag)
+    elif args.stdin: 
+        return ET.iterparse(source=sys.stdin.buffer, tag=tag, encoding='utf-8')

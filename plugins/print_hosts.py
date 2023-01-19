@@ -1,9 +1,10 @@
 import ipaddress
 import logging
+import sys
 
 import lxml.etree as ET
 
-from common.utils import get_nessus_hostproperty_by_name
+from common.utils import get_nessus_hostproperty_by_name, get_xml_context_from_file
 
 PLUGIN_NAME = __name__.rsplit(".", 1)[1]
 
@@ -42,11 +43,9 @@ def handle(args):
     return res
 
 def get_host_details(args):
-    tree = ET.parse(args.input_file)
-    root = tree.getroot()
-
     res = dict()
-    for host in root.iter("ReportHost"):
+    context = get_xml_context_from_file(args, tag="ReportHost")
+    for _, host in context:
         hostprops = host.find("HostProperties")
         _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
@@ -58,6 +57,7 @@ def get_host_details(args):
         for k in sorted(tags.keys()):
             host_res += f"\t{k}: {tags[k]}\n"
         res[name] = host_res
+        host.clear()
 
     if args.by_ip:
         sorted_res = [res[k] for k in sorted(res.keys(), key=lambda x: ipaddress.ip_address(x))]
@@ -67,23 +67,23 @@ def get_host_details(args):
     return "\n".join(sorted_res)
 
 def get_socket_addresses(args):
-    tree = ET.parse(args.input_file)
-    root = tree.getroot()
-
     res = set()
-    for host in root.iter("ReportHost"):
+    context = get_xml_context_from_file(args, tag="ReportHost")
+    for _, host in context:
         hostprops = host.find("HostProperties")
         _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
         name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
-        for finding in host.iter("ReportItem"):
+        for _, finding in ET.iterwalk(host, tag="ReportItem"):
             port = finding.get("port")
             if int(port) == 0:
                 plugin_name = finding.get("pluginName")
                 logger.debug(f"Finding \"{plugin_name}\" does not have a port. Skipping it.")
-                continue
-            
+                finding.clear()
+                continue      
             res.add(f"{name}:{port}")
+            finding.clear()
+        host.clear()
 
     if args.by_ip:
         sorted_res = sorted(res, key=lambda x: (ipaddress.ip_address(x.split(":")[0]), int(x.split(":")[1])))
@@ -93,21 +93,20 @@ def get_socket_addresses(args):
     return "\n".join(sorted_res)
 
 def get_ports_by_host(args):
-    tree = ET.parse(args.input_file)
-    root = tree.getroot()
-
     res = dict()
-    for host in root.iter("ReportHost"):
+    context = get_xml_context_from_file(args, tag="ReportHost")
+    for _, host in context:
         hostprops = host.find("HostProperties")
         _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
         name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
-        for finding in host.iter("ReportItem"):
+        for _, finding in ET.iterwalk(host, tag="ReportItem"):
             port = finding.get("port")
             protocol = finding.get("protocol")
             if int(port) == 0:
                 plugin_name = finding.get("pluginName")
                 logger.debug(f"Finding \"{plugin_name}\" does not have a port. Skipping it.")
+                finding.claer()
                 continue
         
             if name in res:
@@ -115,6 +114,8 @@ def get_ports_by_host(args):
 
             else:
                 res[name] = {f"{protocol.upper()}/{port}"}
+            finding.clear()
+        host.clear()
 
     if args.by_ip:
         sorted_keys = sorted(res.keys(), key=lambda x: ipaddress.ip_address(x))
