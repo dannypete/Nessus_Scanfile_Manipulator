@@ -113,7 +113,7 @@ def determine_match(remove_by, filter_value, host_value, case_sensitive):
     
 def parse_nessus_host_value(hostnode, remove_by):
     if remove_by == FilterParameters.partial_cpe.value:
-        host_value = [tag.text for tag in hostnode.find("HostProperties").findall("tag") if tag.get("name").startswith(remove_by)]
+        host_value = [tag.text for _,tag in ET.iterwalk(hostnode.find("HostProperties"), tag="tag") if tag.get("name").startswith(remove_by)]
         host_value = ",".join(host_value) or None
     else:
         host_value = get_nessus_hostproperty_by_name(hostnode.find("HostProperties"), remove_by, None)

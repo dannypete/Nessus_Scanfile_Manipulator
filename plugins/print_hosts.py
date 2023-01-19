@@ -1,6 +1,5 @@
 import ipaddress
 import logging
-import sys
 
 import lxml.etree as ET
 
@@ -51,7 +50,7 @@ def get_host_details(args):
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
         name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
         tags = dict()
-        for tag in host.find("HostProperties"):
+        for tag in hostprops:
             tags[tag.get("name").title()] = tag.text
         host_res = f"Report Host Name: {name}\n"
         for k in sorted(tags.keys()):

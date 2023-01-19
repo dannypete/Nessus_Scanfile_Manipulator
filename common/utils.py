@@ -15,13 +15,10 @@ def str_to_bool(val: str) -> bool:
         raise ValueError
 
 def get_nessus_hostproperty_by_name(host_properties_node, tag_name, default_result=None):
-    relevant_tag = [tag.text for tag in host_properties_node.findall("tag") if tag_name == tag.get("name")]
-    if len(relevant_tag) == 0:
-        return default_result
-    elif len(relevant_tag) > 1:
-        raise ValueError
-    
-    return relevant_tag[0]
+    for _, tagnode in ET.iterwalk(host_properties_node, tag="tag"):
+        if tagnode.get("name") == tag_name:
+            return tagnode.text
+    return default_result
 
 def get_host_displayname(ip, fqdn, by_ip=False, by_fqdn=False):
     if by_ip:
