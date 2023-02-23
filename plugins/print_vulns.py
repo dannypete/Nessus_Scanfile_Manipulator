@@ -36,6 +36,9 @@ def handle(args):
     else:
         res = get_unique_vulns(args)
 
+    if args.debug:
+        res += "\n\n\n\t\t!!!!NOTE that severities reported in Nessus are 0 (low) to 4 (high)!!!!\n\n\n"
+
     print(res)
     return res
 
@@ -53,9 +56,10 @@ def get_unique_vulns(args):
             plugin_name = finding.get("pluginName").replace("\n", "\\n")
             severity = finding.get("severity")
 
+            logger.debug(f"Finding {plugin_name} (severity={severity}, ID={plugin_id}) for {name} affecting port {port}")
+
             if plugin_name in res:
                 res[plugin_name]["affected_hosts"].add(f"{name}{':' + port if int(port) != 0 else ''}")
-                res[plugin_name]["severities"].add(int(severity))
             
             else:
                 description = finding.find("description").text.replace("\n", "\\n")
@@ -68,19 +72,19 @@ def get_unique_vulns(args):
                     "description": description,
                     "solution": solution,
                     "risk": risk,
-                    "severities": set([int(severity)]),
+                    "severity": int(severity),
                     "affected_hosts": set([f"{name}{':' + port if int(port) != 0 else ''}"])
                 }
                 finding.clear()
-            host.clear()
+        host.clear()
 
-    sorted_keys = sorted(res.keys(), key=lambda x: (-max(res[x]["severities"]), x))
+    sorted_keys = sorted(res.keys(), key=lambda x: (-res[x]["severity"], x))
     sorted_res = []
     for k in sorted_keys:
         if args.by_ip:
-            sorted_res.append(f"Plugin Name: {k}\nSeverities: {sorted(res[k]['severities'], reverse=True)}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts'], key=lambda x: ipaddress.ip_address(x.split(':')[0])))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
+            sorted_res.append(f"Plugin Name: {k}\nSeverity: {res[k]['severity']}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts'], key=lambda x: ipaddress.ip_address(x.split(':')[0])))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
         else:
-            sorted_res.append(f"Plugin Name: {k}\nSeverities: {sorted(res[k]['severities'], reverse=True)}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts']))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
+            sorted_res.append(f"Plugin Name: {k}\nSeverity: {res[k]['severity']}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts']))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
 
     return "\n".join(sorted_res)
 
@@ -99,6 +103,8 @@ def get_vulns_per_host(args):
             service = finding.get("svc_name")
             plugin_name = finding.get("pluginName").replace("\n", "\\n")
             severity = finding.get("severity")
+
+            logger.debug(f"Finding {plugin_name} (severity={severity}) for {name} affecting port {port}")
 
             findings.append({
                 "plugin_name": plugin_name,
@@ -136,6 +142,8 @@ def get_all_vulns(args):
             service = finding.get("svc_name")
             plugin_name = finding.get("pluginName").replace("\n", "\\n")
             severity = finding.get("severity")
+
+            logger.debug(f"Finding {plugin_name} (severity={severity}) for {name} affecting port {port}")
 
             res.append({
                 "plugin_name": plugin_name,
