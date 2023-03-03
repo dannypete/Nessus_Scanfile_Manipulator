@@ -142,6 +142,7 @@ def get_all_vulns(args):
             service = finding.get("svc_name")
             plugin_name = finding.get("pluginName").replace("\n", "\\n")
             severity = finding.get("severity")
+            plugin_output = finding.find("plugin_output").text.replace("\n", "\\n") if finding.find("plugin_output") is not None else ''
 
             logger.debug(f"Finding {plugin_name} (severity={severity}) for {name} affecting port {port}")
 
@@ -153,7 +154,8 @@ def get_all_vulns(args):
                 "service": service,
                 "ip": _ip,
                 "fqdn": _fqdn,
-                "name": name
+                "name": name,
+                "plugin_output": plugin_output
             })
             finding.clear()
         host.clear()
@@ -164,6 +166,6 @@ def get_all_vulns(args):
         sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], x['ip'], x['port']))
     final_res = ""
     for finding in sorted_res:
-        final_res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" Host=\"{finding['name']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\"\n"
+        final_res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" Host=\"{finding['name']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\" Plugin_Output=\"{finding['plugin_output']}\"\n"
 
     return final_res
