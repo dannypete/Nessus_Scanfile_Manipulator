@@ -105,7 +105,7 @@ def get_ports_by_host(args):
             if int(port) == 0:
                 plugin_name = finding.get("pluginName")
                 logger.debug(f"Finding \"{plugin_name}\" does not have a port. Skipping it.")
-                finding.claer()
+                finding.clear()
                 continue
         
             if name in res:
