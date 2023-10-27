@@ -27,7 +27,7 @@ def insert_subparser(subparser):
     arg_parser.set_defaults(handler=handle)
     arg_parser.set_defaults(parser=PLUGIN_NAME)
 
-    arg_parser.add_argument('--remove-by', choices=[fp.name for fp in FilterParameters], help="Comma-separated list of values for the filter to match on", type=str, required=True)
+    arg_parser.add_argument('--remove-by', choices=[fp.name for fp in FilterParameters], help="Comma-separated list of values for the filter to match on. Note \"ip\" allows CIDR notation", type=str, required=True)
     mutual_ex_parser = arg_parser.add_mutually_exclusive_group(required=True)
     mutual_ex_parser.add_argument("--filter-value", help="Comma-separated list of values for the filter to match on", type=str)
     mutual_ex_parser.add_argument("--filter-value-file", help="Path to file containing newline-separated list of values for the filter to match on", type=str)

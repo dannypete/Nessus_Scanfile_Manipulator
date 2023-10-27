@@ -133,9 +133,11 @@ def get_all_vulns(args):
     context = get_xml_context_from_file(args, tag="ReportHost")
     for _, host in context:
         hostprops = host.find("HostProperties")
-        _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
+        _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip", None)
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
         name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
+        if name is None:
+            name = host.get("name")
         for _, finding in ET.iterwalk(host, tag="ReportItem"):
             port = finding.get("port")
             protocol = finding.get("protocol")
@@ -160,12 +162,18 @@ def get_all_vulns(args):
             finding.clear()
         host.clear()
 
-    if args.by_ip:
-        sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], ipaddress.ip_address(x['ip']), x['port']))
-    else:
-        sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], x['ip'], x['port']))
-    final_res = ""
-    for finding in sorted_res:
-        final_res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" Host=\"{finding['name']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\" Plugin_Output=\"{finding['plugin_output']}\"\n"
+    try:
+        if args.by_ip:
+            sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], ipaddress.ip_address(x['ip']) if x['ip'] is not None else ipaddress.ip_address('1.1.1.1'), x['port']))
+        else:
+            sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], x['ip'] or x['name'], x['port']))
+        final_res = ""
+        for finding in sorted_res:
+            final_res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" Host=\"{finding['name']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\" Plugin_Output=\"{finding['plugin_output']}\"\n"
+
+    except ValueError as e:
+        import sys
+        print(e)
+        sys.exit(-1)
 
     return final_res

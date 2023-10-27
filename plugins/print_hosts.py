@@ -79,7 +79,7 @@ def get_socket_addresses(args):
                 plugin_name = finding.get("pluginName")
                 logger.debug(f"Finding \"{plugin_name}\" does not have a port. Skipping it.")
                 finding.clear()
-                continue      
+                continue
             res.add(f"{name}:{port}")
             finding.clear()
         host.clear()
@@ -107,7 +107,7 @@ def get_ports_by_host(args):
                 logger.debug(f"Finding \"{plugin_name}\" does not have a port. Skipping it.")
                 finding.clear()
                 continue
-        
+
             if name in res:
                 res[name].add(f"{protocol.upper()}/{port}")
 
@@ -118,7 +118,7 @@ def get_ports_by_host(args):
 
     if args.by_ip:
         sorted_keys = sorted(res.keys(), key=lambda x: ipaddress.ip_address(x))
-    else: 
+    else:
         sorted_keys = sorted(res.keys())
     sorted_res = []
     for k in sorted_keys:

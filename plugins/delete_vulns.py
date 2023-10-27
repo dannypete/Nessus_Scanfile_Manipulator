@@ -34,12 +34,14 @@ def insert_subparser(subparser):
     arg_parser.add_argument("--case-sensitive", help="Force alphabet characters in filter values to be case sensitive (default is case insensitive)", required=False, action="store_true")
     arg_parser.add_argument("--negate", help="Negate the filter (i.e. 'only keep findings which match the filter')", required=False, action="store_true")
     arg_parser.add_argument("--dry-run", help="Do a dry run of the removal, printing some information about any entries that would be removed but not actually outputting the result", required=False, action="store_true")
+    arg_parser.add_argument("--remove-empty-hosts", help="Entirely remove a host from result if all of its respective findings are deleted", required=False, action="store_true", default=False)
 
 def handle(args):
     remove_by = [fp.value for fp in FilterParameters if fp.name == args.remove_by][0]
     negate = args.negate
     case_sensitive = args.case_sensitive
     dry_run = args.dry_run
+    remove_empty_hosts = args.remove_empty_hosts
 
     if case_sensitive and remove_by in (FilterParameters.plugin_id.value, FilterParameters.finding_port.value, FilterParameters.finding_service.value):
         logger.warning(f"'Case sensitive' flag doesn't have any effect on filter type {remove_by}")
@@ -54,6 +56,7 @@ def handle(args):
     context = get_xml_context_from_file(args, tag="ReportHost")
     dry_run_res = []
     for _, host in context:
+        host_has_vulns = False
         host_name = host.get("name")
         for _, finding in ET.iterwalk(host, tag="ReportItem"):
             finding_name = finding.get("pluginName")
@@ -69,9 +72,22 @@ def handle(args):
                 msg = f"Finding \"{finding_name}\" (port=\"{finding_port}\", svc=\"{finding_svc}\") for host named \"{host_name}\" would have been removed using provided filter"
                 print(msg)
                 dry_run_res.append(msg)
-
+                
             elif any_match:
+                logger.debug(f"Removing finding \"{finding_name}\" (port=\"{finding_port}\", svc=\"{finding_svc}\") for host named \"{host_name}\"")
                 finding.getparent().remove(finding)
+
+            else: # no match
+                host_has_vulns = True
+
+        if remove_empty_hosts and not dry_run and not host_has_vulns :
+            logger.debug(f"Because host {host_name} had all of its findings deleted and --remove-empty-hosts was used, this host will be entirely removed from the output")
+            host.getparent().remove(host)
+        
+        elif remove_empty_hosts and not host_has_vulns: # its a dry_run
+            msg = f"Because host {host_name} had all of its findings deleted and --remove-empty-hosts was used, this host would be entirely removed from the output"
+            print(msg)  
+            dry_run_res.append(msg)
 
     if dry_run:
         logger.warning("Not outputting resulting XML because --dry-run flag was used")

@@ -56,8 +56,13 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(-1)
 
-    result = args.handler(args)
-    # result isn't printed here. each plugin can decide if/what they want printed from their result
+    try:
+        result = args.handler(args)
+        # result isn't printed here. each plugin can decide if/what they want printed from their result
+    except BrokenPipeError: # Thrown when results piped into less then exited before reaching the bottom of less
+        import sys
+        logger.info("Quit.")
+        sys.exit(-1)
 
     if args.output_file is not None:
         with open(args.output_file, "w") as out:
