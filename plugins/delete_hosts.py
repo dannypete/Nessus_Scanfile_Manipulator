@@ -61,7 +61,11 @@ def handle(args):
             logger.debug(f"HostProperty tag named \"{remove_by}\" not found for host named \"{host_name}\", therefore there is not a match.")
             continue
 
-        any_match = check_hostvalue_in_fvlist(remove_by, filter_value_list, host_value, case_sensitive, negate)
+        if negate:
+            any_match = check_hostvalue_in_fvlist_negate(remove_by, filter_value_list, host_value, case_sensitive)
+        else:
+            any_match = check_hostvalue_in_fvlist(remove_by, filter_value_list, host_value, case_sensitive)
+
         if any_match and dry_run:
             hostproperties_node = host.find("HostProperties")
             cpe = get_nessus_hostproperty_by_name(hostproperties_node, FilterParameters.partial_cpe.value, "None Reported")
@@ -84,16 +88,28 @@ def handle(args):
             logger.warning("Not stdout-printing the resulting XML since an output file was specified")
         return result
 
-def check_hostvalue_in_fvlist(remove_by, filter_value_list, host_value, case_sensitive, negate):
+def check_hostvalue_in_fvlist(remove_by, filter_value_list, host_value, case_sensitive):
     for fv in filter_value_list:
         values_match = determine_match(remove_by, fv, host_value, case_sensitive)
-        match = values_match if not negate else not values_match
-        if match:
+
+        if values_match:
+            logger.debug(f"Final match determination: match={values_match} for: {host_value} matches filter value {fv}")
             return True
+        
     return False
 
+def check_hostvalue_in_fvlist_negate(remove_by, filter_value_list, host_value, case_sensitive):
+    for fv in filter_value_list:
+        values_match = determine_match(remove_by, fv, host_value, case_sensitive)
+
+        if values_match:
+            logger.debug(f"{host_value} matches filter value, and we're negating, so we want to keep this item")
+            return False
+        
+    return True
+
 def determine_match(remove_by, filter_value, host_value, case_sensitive):
-    logger.debug(f"Determining if '{filter_value}' matches '{host_value}' {'with case-sensitivity' if case_sensitive else ''} with filter logic for {remove_by}.")
+    logger.debug(f"Determining if '{host_value}' {'(with case-sensitivity) ' if case_sensitive else ''}matches filter value '{filter_value}' with filter logic for {remove_by}.")
 
     if remove_by == FilterParameters.ip.value:
             values_match = ipaddress.ip_address(host_value) in ipaddress.ip_network(filter_value, strict=False)
@@ -109,6 +125,7 @@ def determine_match(remove_by, filter_value, host_value, case_sensitive):
     else:
         values_match = host_value.lower() == filter_value.lower()
 
+    logger.debug(f"Determined that '{filter_value}' preliminarily {'does' if values_match else 'does not'} match the provided filter")
     return values_match
     
 def parse_nessus_host_value(hostnode, remove_by):

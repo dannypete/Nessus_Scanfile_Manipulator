@@ -67,7 +67,12 @@ def handle(args):
                 logger.debug(f"Filter property \"{remove_by}\" of finding titled \"{finding_name}\" for host named \"{host_name}\" not found, therefore there is not a match.")
                 continue
 
-            any_match = check_match_in_fvlist(remove_by, filter_value_list, finding_value, case_sensitive, negate)
+            if negate:
+                any_match = check_findingvalue_in_fvlist_negate(remove_by, filter_value_list, finding_value, case_sensitive)
+            else:
+                any_match = check_findingvalue_in_fvlist(remove_by, filter_value_list, finding_value, case_sensitive)
+
+
             if any_match and dry_run:
                 msg = f"Finding \"{finding_name}\" (port=\"{finding_port}\", svc=\"{finding_svc}\") for host named \"{host_name}\" would have been removed using provided filter"
                 print(msg)
@@ -99,17 +104,29 @@ def handle(args):
         else:
             logger.warning("Not stdout-printing the resulting XML since an output file was specified")
         return result
-    
-def check_match_in_fvlist(remove_by, filter_value_list, finding_value, case_sensitive, negate):
+
+def check_findingvalue_in_fvlist(remove_by, filter_value_list, finding_value, case_sensitive):
     for fv in filter_value_list:
         values_match = determine_match(remove_by, fv, finding_value, case_sensitive)
-        match = values_match if not negate else not values_match
-        if match:
+
+        if values_match:
+            logger.debug(f"Final match determination: match={values_match} for: {finding_value} matches filter value {fv}")
             return True
+        
     return False
 
+def check_findingvalue_in_fvlist_negate(remove_by, filter_value_list, finding_value, case_sensitive):
+    for fv in filter_value_list:
+        values_match = determine_match(remove_by, fv, finding_value, case_sensitive)
+
+        if values_match:
+            logger.debug(f"{finding_value} matches filter value, and we're negating, so we want to keep this item")
+            return False
+        
+    return True
+
 def determine_match(remove_by, filter_value, finding_value, case_sensitive):
-    logger.debug(f"Determining if '{filter_value}' matches '{finding_value}' {'with case-sensitivity' if case_sensitive else ''} with filter logic for {remove_by}.")
+    logger.debug(f"Determining if '{finding_value}' {'(with case-sensitivity) ' if case_sensitive else ''}matches filter value '{filter_value}' with filter logic for {remove_by}.")
 
     if remove_by == FilterParameters.ip.value:
         values_match = ipaddress.ip_address(finding_value) in ipaddress.ip_network(filter_value, strict=False)
@@ -123,6 +140,7 @@ def determine_match(remove_by, filter_value, finding_value, case_sensitive):
     else:
         values_match = finding_value.lower() == filter_value.lower()
 
+    logger.debug(f"Determined that '{filter_value}' preliminarily {'does' if values_match else 'does not'} match the provided filter")
     return values_match
 
 def get_finding_value(hostnode, findingnode, remove_by: FilterParameters, default_value=None):
