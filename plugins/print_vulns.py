@@ -2,6 +2,7 @@ import ipaddress
 import logging
 
 import lxml.etree as ET
+from pprint import pformat
 
 from common.utils import get_nessus_hostproperty_by_name, get_host_displayname, get_xml_context_from_file
 
@@ -18,6 +19,7 @@ def insert_subparser(subparser):
     mutual_ex_parser.add_argument("--unique", help="Print unique vulnerabilities (by Finding Name)", action="store_true", default=False)
     mutual_ex_parser.add_argument("--all", help="Print all vulnerabilities", action="store_true", default=False)
     mutual_ex_parser.add_argument("--by-host", help="Print all vulnerabilities grouped by host", action="store_true", default=False)
+    mutual_ex_parser.add_argument("--compliance", help="Print CIS benchmark data ONLY (doesn't parse normal findings)", action="store_true", default=False)
 
     mutual_ex_parser2 = arg_parser.add_mutually_exclusive_group()
     mutual_ex_parser2.add_argument("--by-ip", help="Designate hosts by their IP only", action="store_true", default=False)
@@ -32,6 +34,9 @@ def handle(args):
 
     elif args.by_host:
         res = get_vulns_per_host(args)
+
+    elif args.compliance:
+        res = get_compliance_vulns(args)
 
     else:
         res = get_unique_vulns(args)
@@ -177,3 +182,96 @@ def get_all_vulns(args):
         sys.exit(-1)
 
     return final_res
+
+def get_compliance_vulns(args):
+    # make sure to do `cat asdf.nessus | sed 's/<cm:/cm__/g | sed 's|</cm:|</cm__|' | nessus_scanfile_parser.py --stdin`
+    # or become a big boy and figure out how to make LXML understand XML namespaces
+
+    res = dict()
+    context = get_xml_context_from_file(args, tag="ReportHost")
+    for _, host in context:
+        hostprops = host.find("HostProperties")
+        _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip", None)
+        _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
+        name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
+        if name is None:
+            name = host.get("name")
+        for _, finding in ET.iterwalk(host, tag="ReportItem"):
+
+            plugin_name = finding.get("pluginName")
+            plugin_id = finding.get("pluginID")
+            severity = int(finding.get("severity"))
+            if finding.get("pluginFamily") != "Policy Compliance":
+                logger.info(f"Skipping finding named {plugin_name} for host {name}")
+                continue
+            else:
+                logger.debug(f"Processing severity {severity} finding {plugin_name} (ID: {plugin_id}) for host {name}")
+
+            check_name = finding.find("cm__compliance-check-name").text.replace("\n", " ")
+            check_result = finding.find("cm__compliance-result").text.replace("\n", " ")
+            description = finding.find("cm__compliance-info").text.replace("\n", " ")
+            solution = finding.find("cm__compliance-solution").text.replace("\n", " ")
+            check_references = finding.find("cm__compliance-reference").text.replace("\n", " ")
+            check_see_also = finding.find("cm__compliance-see-also").text.replace("\n", " ")
+            check_output = finding.find("cm__compliance-actual-value").text.replace("\n", " ") if finding.find("cm__compliance-actual-value") is not None else None
+            instanz = finding.find("cm__compliance-instance").text.replace("\n", " ") if finding.find("cm__compliance-instance") is not None else None
+            policy_value = finding.find("cm__compliance-policy-value").text.replace("\n", " ") if finding.find("cm__compliance-policy-value") is not None else None
+            error = finding.find("cm__compliance-error").text.replace("\n", " ") if finding.find("cm__compliance-error") is not None else None
+
+            if instanz is not None:
+                db = instanz.split("/")[1]
+            elif check_output is not None:
+                db = check_output.split(":")[0].split("\n")[0]
+            elif error is not None:
+                db = error.split("/")[1]
+            else:
+                logger.warn("Couldn't determine DB/SID for current finding")
+                db = "BROKEN"
+
+            finding_json = {
+                "hostName": name,
+                "database": db,
+                "instance": instanz,
+                "pluginName": plugin_name,
+                "pluginId": plugin_id,
+                "severity": severity,
+                "title": check_name,
+                "description": description,
+                "solution": solution,
+                "checkResult": check_result,
+                "pluginOutput": check_output,
+                "references": check_references,
+                "seeAlso": check_see_also,
+                "policyValue": policy_value,
+                "error": error
+            }
+
+            if check_result.upper() == "PASSED":
+                continue
+
+            if finding_json['title'] in res:
+                res[finding_json["title"]].append(finding_json)
+            else:
+                res[finding_json["title"]] = [finding_json]
+
+    # return _format_compliance_output(res)
+    return str(res)
+
+# def _format_compliance_output(result_dict: dict):
+#     for i, key in enumerate(sorted(result_dict.keys(), key=lambda v: [int(p) for p in v.split(" ")[0].split('.') if p.isdigit()])):
+
+
+#         print(f"{result}")
+
+#         print(f"TITLE: 2.{i+1} {key.split(' ',1)[1].strip()} ({key.split(' ', 1)[0]})")
+#         print(f"SEVERITY:  {result_dict[key][0]['severity']}")
+#         print(f"CHECK RESULT:  {result_dict[key][0]['checkResult']}")
+#         print(f"AFFECTED HOSTS:\n  {' '.join([result_dict[key][i]['hostName'] + '/' + result_dict[key][i]['database'] for i in range(len(result_dict[key]))])}")
+#         print(f"DESCRIPTION:  {result_dict[key][0]['description']}")
+#         print(f"EVIDENCE:  {result_dict[key][0]['policyValue']}")
+#         print(f"PLUGIN OUTPUT:  {result_dict[key][0]['pluginOutput']}")
+#         print(f"SOLUTION:  {result_dict[key][0]['solution']}")
+#         print(f"REFERENCES:  {result_dict[key][0]['references']}")
+#         print(f"SEE ALSO:  {result_dict[key][0]['seeAlso']}")
+#         print(f"ERROR:  {result_dict[key][0]['error']}")
+#         print("\n\n\n")
