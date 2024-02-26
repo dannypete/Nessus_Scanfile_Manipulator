@@ -187,6 +187,11 @@ def get_compliance_vulns(args):
     # make sure to do `cat asdf.nessus | sed 's/<cm:/cm__/g | sed 's|</cm:|</cm__|' | nessus_scanfile_parser.py --stdin`
     # or become a big boy and figure out how to make LXML understand XML namespaces
 
+    logger.warn("Before using the --compliance flag, you might consider consolidating the CIS Nessus scan files \
+                e.g. by copying all the ReportHosts from various files into one Nessus file.")
+    logger.warn("To get this parser to work, you'll want to do `cat CIS_result.nessus | | sed 's/<cm:/<cm__/g' | \
+                sed 's|</cm:|</cm__|g' | ./nessus_scanfile_manipulator.py --stdin print_vulns --compliance")
+
     res = dict()
     context = get_xml_context_from_file(args, tag="ReportHost")
     for _, host in context:
@@ -254,24 +259,21 @@ def get_compliance_vulns(args):
             else:
                 res[finding_json["title"]] = [finding_json]
 
-    # return _format_compliance_output(res)
-    return str(res)
+    return _format_compliance_output(res)
 
-# def _format_compliance_output(result_dict: dict):
-#     for i, key in enumerate(sorted(result_dict.keys(), key=lambda v: [int(p) for p in v.split(" ")[0].split('.') if p.isdigit()])):
+def _format_compliance_output(result_dict: dict):
+    for i, key in enumerate(sorted(result_dict.keys(), key=lambda v: [int(p) for p in v.split(" ")[0].split('.') if p.isdigit()])):
 
-
-#         print(f"{result}")
-
-#         print(f"TITLE: 2.{i+1} {key.split(' ',1)[1].strip()} ({key.split(' ', 1)[0]})")
-#         print(f"SEVERITY:  {result_dict[key][0]['severity']}")
-#         print(f"CHECK RESULT:  {result_dict[key][0]['checkResult']}")
-#         print(f"AFFECTED HOSTS:\n  {' '.join([result_dict[key][i]['hostName'] + '/' + result_dict[key][i]['database'] for i in range(len(result_dict[key]))])}")
-#         print(f"DESCRIPTION:  {result_dict[key][0]['description']}")
-#         print(f"EVIDENCE:  {result_dict[key][0]['policyValue']}")
-#         print(f"PLUGIN OUTPUT:  {result_dict[key][0]['pluginOutput']}")
-#         print(f"SOLUTION:  {result_dict[key][0]['solution']}")
-#         print(f"REFERENCES:  {result_dict[key][0]['references']}")
-#         print(f"SEE ALSO:  {result_dict[key][0]['seeAlso']}")
-#         print(f"ERROR:  {result_dict[key][0]['error']}")
-#         print("\n\n\n")
+        print(f"{key}")
+        print(f"TITLE: 2.{i+1} {key.split(' ',1)[1].strip()} ({key.split(' ', 1)[0]})")
+        print(f"SEVERITY:  {result_dict[key][0]['severity']}")
+        print(f"CHECK RESULT:  {result_dict[key][0]['checkResult']}")
+        print(f"AFFECTED HOSTS:\n  {' '.join([result_dict[key][i]['hostName'] + '/' + result_dict[key][i]['database'] for i in range(len(result_dict[key]))])}")
+        print(f"DESCRIPTION:  {result_dict[key][0]['description']}")
+        print(f"EVIDENCE:  {result_dict[key][0]['policyValue']}")
+        print(f"PLUGIN OUTPUT:  {result_dict[key][0]['pluginOutput']}")
+        print(f"SOLUTION:  {result_dict[key][0]['solution']}")
+        print(f"REFERENCES:  {result_dict[key][0]['references']}")
+        print(f"SEE ALSO:  {result_dict[key][0]['seeAlso']}")
+        print(f"ERROR:  {result_dict[key][0]['error']}")
+        print("\n\n\n")
