@@ -259,9 +259,12 @@ def get_compliance_vulns(args):
             else:
                 res[finding_json["title"]] = [finding_json]
 
-    return _format_compliance_output(res)
+    # return _format_compliance_output_csv(res)
+    # return _format_compliance_output_json(res)
+    return _format_compliance_output_text(res)
 
-def _format_compliance_output(result_dict: dict):
+def _format_compliance_output_text(result_dict: dict):
+    logger.log("Outputting compliance parse result as text")
     for i, key in enumerate(sorted(result_dict.keys(), key=lambda v: [int(p) for p in v.split(" ")[0].split('.') if p.isdigit()])):
 
         print(f"{key}")
@@ -277,3 +280,22 @@ def _format_compliance_output(result_dict: dict):
         print(f"SEE ALSO:  {result_dict[key][0]['seeAlso']}")
         print(f"ERROR:  {result_dict[key][0]['error']}")
         print("\n\n\n")
+
+def _format_compliance_output_json(result_dict: dict):
+    import json
+    logger.log("Outputting compliance parse result as JSON")
+    return json.dumps(result_dict)
+
+def _format_compliance_output_csv(result_dict: dict):
+    import csv, io
+    logger.log("Outputting compliance parse result as CSV")
+    flattened = []
+    for key in result_dict:
+        flattened.extend(result_dict[key])
+
+    f = io.StringIO("")
+    writer = csv.DictWriter(f, fieldnames=flattened[0].keys())
+    writer.writeheader()
+    writer.writerows(flattened)
+
+    return f.getvalue()
