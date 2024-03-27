@@ -15,13 +15,19 @@ def insert_subparser(subparser):
     arg_parser.set_defaults(parser=PLUGIN_NAME)
 
     mutual_ex_parser = arg_parser.add_mutually_exclusive_group()
-    mutual_ex_parser.add_argument("--unique", help="Print unique vulnerabilities (by Finding Name)", action="store_true", default=False)
-    mutual_ex_parser.add_argument("--all", help="Print all vulnerabilities", action="store_true", default=False)
-    mutual_ex_parser.add_argument("--by-host", help="Print all vulnerabilities grouped by host", action="store_true", default=False)
+    mutual_ex_parser.add_argument("--unique", help="Print unique vulnerabilities (by Finding Name)", 
+                                  action="store_true", default=False)
+    mutual_ex_parser.add_argument("--all", help="Print all vulnerabilities", 
+                                  action="store_true", default=False)
+    mutual_ex_parser.add_argument("--by-host", help="Print all vulnerabilities grouped by host", 
+                                  action="store_true", default=False)
 
     mutual_ex_parser2 = arg_parser.add_mutually_exclusive_group()
-    mutual_ex_parser2.add_argument("--by-ip", help="Designate hosts by their IP only", action="store_true", default=False)
-    mutual_ex_parser2.add_argument("--by-fqdn", help="Designate hosts by FQDN only (falls back to IP no FQDN reported)", action="store_true", default=False)
+    mutual_ex_parser2.add_argument("--by-ip", help="Designate hosts by their IP only", 
+                                   action="store_true", default=False)
+    mutual_ex_parser2.add_argument("--by-fqdn", 
+                                   help="Designate hosts by FQDN only (falls back to IP if no FQDN was reported)", 
+                                   action="store_true", default=False)
 
 def handle(args):
     if args.unique:
@@ -82,9 +88,11 @@ def get_unique_vulns(args):
     sorted_res = []
     for k in sorted_keys:
         if args.by_ip:
-            sorted_res.append(f"Plugin Name: {k}\nSeverity: {res[k]['severity']}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts'], key=lambda x: ipaddress.ip_address(x.split(':')[0])))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
+            sorted_res.append(
+                f"Plugin_Name: {k}\nSeverity: {res[k]['severity']}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts'], key=lambda x: ipaddress.ip_address(x.split(':')[0])))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
         else:
-            sorted_res.append(f"Plugin Name: {k}\nSeverity: {res[k]['severity']}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts']))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
+            sorted_res.append(
+                f"Plugin_Name: {k}\nSeverity: {res[k]['severity']}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts']))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {res[k]['plugin_id']}\nPlugin Type: {res[k]['plugin_type']}\n")
 
     return "\n".join(sorted_res)
 
@@ -164,7 +172,9 @@ def get_all_vulns(args):
 
     try:
         if args.by_ip:
-            sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], ipaddress.ip_address(x['ip']) if x['ip'] is not None else ipaddress.ip_address('1.1.1.1'), x['port']))
+            sorted_res = sorted(res, 
+                                key=lambda x: (-x['severity'], x['plugin_name'], ipaddress.ip_address(x['ip']) if \
+                                               x['ip'] is not None else ipaddress.ip_address('1.1.1.1'), x['port']))
         else:
             sorted_res = sorted(res, key=lambda x: (-x['severity'], x['plugin_name'], x['ip'] or x['name'], x['port']))
         final_res = ""

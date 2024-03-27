@@ -7,22 +7,28 @@ PLUGIN_NAME = __name__.rsplit(".", 1)[1]
 
 logger = logging.getLogger(__name__)
 
+COMPLIANCE_NS_URL = '{http://www.nessus.org/cm}'
+
 def insert_subparser(subparser):
     arg_parser = subparser.add_parser(PLUGIN_NAME, help="Print information about CIS benchmark findings present in the \
-                                      scan file. Note: make sure to do `cat CIS_result.nessus | | sed 's/<cm:/<cm__/g' \
-                                      | sed 's|</cm:|</cm__|g' | ./nessus_scanfile_manipulator.py --stdin print_vulns \
-                                      --compliance` to get the parser to work correctly")
+                                      scan file.")
     arg_parser.set_defaults(handler=handle)
     arg_parser.set_defaults(parser=PLUGIN_NAME)
 
     mutual_ex_parser = arg_parser.add_mutually_exclusive_group()
-    mutual_ex_parser.add_argument("--output-as-text", "-oT", help="Output result as text (the default)", action="store_true", default=False)
-    mutual_ex_parser.add_argument("--output-as-csv", "-oC", help="Output result as CSV", action="store_true", default=False)
-    mutual_ex_parser.add_argument("--output-as-json", "-oJ", help="Output result as JSON", action="store_true", default=False)
+    mutual_ex_parser.add_argument("--output-as-text", "-oT", help="Output result as text (the default)", 
+                                  action="store_true", default=False)
+    mutual_ex_parser.add_argument("--output-as-csv", "-oC", help="Output result as CSV", 
+                                  action="store_true", default=False)
+    mutual_ex_parser.add_argument("--output-as-json", "-oJ", help="Output result as JSON", 
+                                  action="store_true", default=False)
 
     mutual_ex_parser2 = arg_parser.add_mutually_exclusive_group()
-    mutual_ex_parser2.add_argument("--by-ip", help="Designate hosts by their IP only", action="store_true", default=False)
-    mutual_ex_parser2.add_argument("--by-fqdn", help="Designate hosts by FQDN only (falls back to IP no FQDN reported)", action="store_true", default=False)
+    mutual_ex_parser2.add_argument("--by-ip", help="Designate hosts by their IP only", 
+                                   action="store_true", default=False)
+    mutual_ex_parser2.add_argument("--by-fqdn", 
+                                   help="Designate hosts by FQDN only (falls back to IP no FQDN reported)", 
+                                   action="store_true", default=False)
 
 def handle(args):
     res = get_compliance_vulns(args)
@@ -39,14 +45,6 @@ def handle(args):
     return res
 
 def get_compliance_vulns(args):
-    # make sure to do `cat asdf.nessus | sed 's/<cm:/cm__/g | sed 's|</cm:|</cm__|' | nessus_scanfile_parser.py --stdin`
-    # or become a big boy and figure out how to make LXML understand XML namespaces
-
-    logger.warn("Before using the --compliance flag, you might consider consolidating the CIS Nessus scan files \
-                e.g. by copying all the ReportHosts from various files into one Nessus file.")
-    logger.warn("To get this parser to work, you'll want to do `cat CIS_result.nessus | | sed 's/<cm:/<cm__/g' | \
-                sed 's|</cm:|</cm__|g' | ./nessus_scanfile_manipulator.py --stdin print_vulns --compliance")
-
     res = dict()
     context = get_xml_context_from_file(args, tag="ReportHost")
     for _, host in context:
@@ -67,16 +65,20 @@ def get_compliance_vulns(args):
             else:
                 logger.debug(f"Processing severity {severity} finding {plugin_name} (ID: {plugin_id}) for host {name}")
 
-            check_name = finding.find("cm__compliance-check-name").text.replace("\n", " ")
-            check_result = finding.find("cm__compliance-result").text.replace("\n", " ")
-            description = finding.find("cm__compliance-info").text.replace("\n", " ")
-            solution = finding.find("cm__compliance-solution").text.replace("\n", " ")
-            check_references = finding.find("cm__compliance-reference").text.replace("\n", " ")
-            check_see_also = finding.find("cm__compliance-see-also").text.replace("\n", " ")
-            check_output = finding.find("cm__compliance-actual-value").text.replace("\n", " ") if finding.find("cm__compliance-actual-value") is not None else None
-            instanz = finding.find("cm__compliance-instance").text.replace("\n", " ") if finding.find("cm__compliance-instance") is not None else None
-            policy_value = finding.find("cm__compliance-policy-value").text.replace("\n", " ") if finding.find("cm__compliance-policy-value") is not None else None
-            error = finding.find("cm__compliance-error").text.replace("\n", " ") if finding.find("cm__compliance-error") is not None else None
+            check_name = finding.find(f"{COMPLIANCE_NS_URL}compliance-check-name").text.replace("\n", " ")
+            check_result = finding.find(f"{COMPLIANCE_NS_URL}compliance-result").text.replace("\n", " ")
+            description = finding.find(f"{COMPLIANCE_NS_URL}compliance-info").text.replace("\n", " ")
+            solution = finding.find(f"{COMPLIANCE_NS_URL}compliance-solution").text.replace("\n", " ")
+            check_references = finding.find(f"{COMPLIANCE_NS_URL}compliance-reference").text.replace("\n", " ")
+            check_see_also = finding.find(f"{COMPLIANCE_NS_URL}compliance-see-also").text.replace("\n", " ")
+            check_output = finding.find(f"{COMPLIANCE_NS_URL}compliance-actual-value").text.replace("\n", " ") if \
+                finding.find(f"{COMPLIANCE_NS_URL}compliance-actual-value") is not None else None
+            instanz = finding.find(f"{COMPLIANCE_NS_URL}compliance-instance").text.replace("\n", " ") if \
+                finding.find(f"{COMPLIANCE_NS_URL}compliance-instance") is not None else None
+            policy_value = finding.find(f"{COMPLIANCE_NS_URL}compliance-policy-value").text.replace("\n", " ") \
+                if finding.find(f"{COMPLIANCE_NS_URL}compliance-policy-value") is not None else None
+            error = finding.find(f"{COMPLIANCE_NS_URL}compliance-error").text.replace("\n", " ") \
+                if finding.find(f"{COMPLIANCE_NS_URL}compliance-error") is not None else None
 
             if instanz is not None:
                 db = instanz.split("/")[1]
@@ -118,7 +120,8 @@ def get_compliance_vulns(args):
 
 def _format_compliance_output_text(result_dict: dict):
     logger.info("Outputting compliance parse result as text")
-    for i, key in enumerate(sorted(result_dict.keys(), key=lambda v: [int(p) for p in v.split(" ")[0].split('.') if p.isdigit()])):
+    for i, key in enumerate(sorted(result_dict.keys(), key=lambda v: [int(p) for p in v.split(" ")[0].split('.') if \
+                                                                      p.isdigit()])):
 
         print(f"{key}")
         print(f"TITLE: 2.{i+1} {key.split(' ',1)[1].strip()} ({key.split(' ', 1)[0]})")

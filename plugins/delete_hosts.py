@@ -23,17 +23,28 @@ class FilterParameters(Enum):
         return self.name
 
 def insert_subparser(subparser):
-    arg_parser = subparser.add_parser(PLUGIN_NAME, help="Remove hosts using the provided (CASE INSENSITIVE) filter values")
+    arg_parser = subparser.add_parser(PLUGIN_NAME, help="Remove hosts using the provided (CASE INSENSITIVE) filter \
+                                      values")
     arg_parser.set_defaults(handler=handle)
     arg_parser.set_defaults(parser=PLUGIN_NAME)
 
-    arg_parser.add_argument('--remove-by', choices=[fp.name for fp in FilterParameters], help="Comma-separated list of values for the filter to match on. Note \"ip\" allows CIDR notation", type=str, required=True)
+    arg_parser.add_argument('--remove-by', choices=[fp.name for fp in FilterParameters], help="Comma-separated list of \
+                            values for the filter to match on. Note \"ip\" allows CIDR notation", 
+                            type=str, required=True)
     mutual_ex_parser = arg_parser.add_mutually_exclusive_group(required=True)
-    mutual_ex_parser.add_argument("--filter-value", help="Comma-separated list of values for the filter to match on", type=str)
-    mutual_ex_parser.add_argument("--filter-value-file", help="Path to file containing newline-separated list of values for the filter to match on", type=str)
-    arg_parser.add_argument("--case-sensitive", help="Force alphabet characters in filter values to be case sensitive (default is case insensitive)", required=False, action="store_true")
-    arg_parser.add_argument("--negate", help="Negate the filter (i.e. 'only keep hosts which match the filter')", required=False, action="store_true")
-    arg_parser.add_argument("--dry-run", help="Do a dry run of the removal, printing some information about any entries that would be removed but not actually outputting the result", required=False, action="store_true")
+    mutual_ex_parser.add_argument("--filter-value", help="Comma-separated list of values for the filter to match on", 
+                                  type=str)
+    mutual_ex_parser.add_argument("--filter-value-file", help="Path to file containing newline-separated list of \
+                                  values for the filter to match on", 
+                                  type=str)
+    arg_parser.add_argument("--case-sensitive", help="Force alphabet characters in filter values to be case \
+                            sensitive (default is case insensitive)", 
+                            required=False, action="store_true")
+    arg_parser.add_argument("--negate", help="Negate the filter (i.e. 'only keep hosts which match the filter')", 
+                            required=False, action="store_true")
+    arg_parser.add_argument("--dry-run", help="Do a dry run of the removal, printing some information about any \
+                            entries that would be removed but not actually outputting the result", 
+                            required=False, action="store_true")
 
 def handle(args):
     remove_by = [fp.value for fp in FilterParameters if fp.name == args.remove_by][0]
@@ -68,7 +79,8 @@ def handle(args):
 
         if any_match and dry_run:
             hostproperties_node = host.find("HostProperties")
-            cpe = get_nessus_hostproperty_by_name(hostproperties_node, FilterParameters.partial_cpe.value, "None Reported")
+            cpe = get_nessus_hostproperty_by_name(hostproperties_node, FilterParameters.partial_cpe.value, 
+                                                  "None Reported")
             rdns = get_nessus_hostproperty_by_name(hostproperties_node, "host-rdns", "None Reported")
             msg = f"Host named \"{host_name}\" (primary CPE='{cpe}';  RDNS='{rdns}') would have been removed using provided filter"
             print(msg)
@@ -130,7 +142,8 @@ def determine_match(remove_by, filter_value, host_value, case_sensitive):
     
 def parse_nessus_host_value(hostnode, remove_by):
     if remove_by == FilterParameters.partial_cpe.value:
-        host_value = [tag.text for _,tag in ET.iterwalk(hostnode.find("HostProperties"), tag="tag") if tag.get("name").startswith(remove_by)]
+        host_value = [tag.text for _,tag in ET.iterwalk(hostnode.find("HostProperties"), tag="tag") if \
+                      tag.get("name").startswith(remove_by)]
         host_value = ",".join(host_value) or None
     else:
         host_value = get_nessus_hostproperty_by_name(hostnode.find("HostProperties"), remove_by, None)

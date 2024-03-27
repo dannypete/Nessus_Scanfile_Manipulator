@@ -11,18 +11,25 @@ logger = logging.getLogger(__name__)
 
 
 def insert_subparser(subparser):
-    arg_parser = subparser.add_parser(PLUGIN_NAME, help="Print information about hosts present in the Nessus scan file. Default action: print host details")
+    arg_parser = subparser.add_parser(PLUGIN_NAME, help="Print information about hosts present in the Nessus scan \
+                                      file. Default action: print host details")
     arg_parser.set_defaults(handler=handle)
     arg_parser.set_defaults(parser=PLUGIN_NAME)
 
     mutual_ex_parser = arg_parser.add_mutually_exclusive_group()
-    mutual_ex_parser.add_argument("--host-details", help="Print data about each host", action="store_true")
-    mutual_ex_parser.add_argument("--socket-addrs", help="Print all socket addresses (i.e. \"10.20.30.40:8080\")", action="store_true")
-    mutual_ex_parser.add_argument("--host-ports", help="Print open ports per host (e.g. \"10.20.30.40: UDP/137,TCP/443,TCP/8080\")", action="store_true")
+    mutual_ex_parser.add_argument("--host-details", help="Print data about each host", 
+                                  action="store_true")
+    mutual_ex_parser.add_argument("--socket-addrs", help="Print all socket addresses (i.e. \"10.20.30.40:8080\")", 
+                                  action="store_true")
+    mutual_ex_parser.add_argument("--host-ports", 
+                                  help="Print open ports per host (e.g. \"10.20.30.40: UDP/137,TCP/443,TCP/8080\")", 
+                                  action="store_true")
 
     mutual_ex_parser2 = arg_parser.add_mutually_exclusive_group()
-    mutual_ex_parser2.add_argument("--by-ip", help="Designate hosts by their IP only", action="store_true", default=False)
-    mutual_ex_parser2.add_argument("--by-fqdn", help="Designate hosts by FQDN only (falls back to IP no FQDN reported)", action="store_true", default=False)
+    mutual_ex_parser2.add_argument("--by-ip", help="Designate hosts by their IP only", 
+                                   action="store_true", default=False)
+    mutual_ex_parser2.add_argument("--by-fqdn", help="Designate hosts by FQDN only (falls back to IP no FQDN reported)", 
+                                   action="store_true", default=False)
 
 def handle(args):
     if args.host_details:

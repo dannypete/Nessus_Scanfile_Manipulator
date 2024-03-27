@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 def get_parser():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("--debug", help="Debug output (implies verbose)", required=False, action="store_true", default=False)
+    argparser.add_argument("--debug", help="Debug output (implies verbose)", required=False, 
+                           action="store_true", default=False)
     argparser.add_argument("-v", "--verbose", help="More output", required=False, action="store_true", default=False)
 
     in_mut_ex_grp = argparser.add_mutually_exclusive_group(required=True)

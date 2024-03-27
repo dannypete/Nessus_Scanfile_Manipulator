@@ -32,6 +32,6 @@ def get_host_displayname(ip, fqdn, by_ip=False, by_fqdn=False):
 
 def get_xml_context_from_file(args, tag="ReportHost"):
     if args.input_file is not None:
-        return ET.iterparse(source=args.input_file, tag=tag)
+        return ET.iterparse(source=args.input_file, tag=tag, no_network=True, resolve_entities=False, load_dtd=False)
     elif args.stdin: 
-        return ET.iterparse(source=sys.stdin.buffer, tag=tag, encoding='utf-8')
+        return ET.iterparse(source=sys.stdin.buffer, tag=tag, no_network=True, resolve_entities=False, load_dtd=False, encoding='utf-8')

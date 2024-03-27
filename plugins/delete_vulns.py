@@ -23,18 +23,30 @@ class FilterParameters(Enum):
         return self.name
 
 def insert_subparser(subparser):
-    arg_parser = subparser.add_parser(PLUGIN_NAME, help="Remove vulns using the provided (CASE INSENSITIVE) filter values")
+    arg_parser = subparser.add_parser(PLUGIN_NAME, help="Remove vulns using the provided (CASE INSENSITIVE) \
+                                      filter values")
     arg_parser.set_defaults(handler=handle)
     arg_parser.set_defaults(parser=PLUGIN_NAME)
 
-    arg_parser.add_argument('--remove-by', choices=[fp.name for fp in FilterParameters], help="Comma-separated list of values for the filter to match on", type=str, required=True)
+    arg_parser.add_argument('--remove-by', choices=[fp.name for fp in FilterParameters], 
+                            help="Comma-separated list of values for the filter to match on", 
+                            type=str, required=True)
     mutual_ex_parser = arg_parser.add_mutually_exclusive_group(required=True)
-    mutual_ex_parser.add_argument("--filter-value", help="Comma-separated list of values for the filter to match on", type=str)
-    mutual_ex_parser.add_argument("--filter-value-file", help="Path to file containing newline-separated list of values for the filter to match on", type=str)
-    arg_parser.add_argument("--case-sensitive", help="Force alphabet characters in filter values to be case sensitive (default is case insensitive)", required=False, action="store_true")
-    arg_parser.add_argument("--negate", help="Negate the filter (i.e. 'only keep findings which match the filter')", required=False, action="store_true")
-    arg_parser.add_argument("--dry-run", help="Do a dry run of the removal, printing some information about any entries that would be removed but not actually outputting the result", required=False, action="store_true")
-    arg_parser.add_argument("--remove-empty-hosts", help="Entirely remove a host from result if all of its respective findings are deleted", required=False, action="store_true", default=False)
+    mutual_ex_parser.add_argument("--filter-value", help="Comma-separated list of values for the filter to match on", 
+                                  type=str)
+    mutual_ex_parser.add_argument("--filter-value-file", help="Path to file containing newline-separated list of \
+                                  values for the filter to match on", 
+                                  type=str)
+    arg_parser.add_argument("--case-sensitive", help="Force alphabet characters in filter values to be case sensitive \
+                            (default is case insensitive)", 
+                            required=False, action="store_true")
+    arg_parser.add_argument("--negate", help="Negate the filter (i.e. 'only keep findings which match the filter')", 
+                            required=False, action="store_true")
+    arg_parser.add_argument("--dry-run", help="Do a dry run of the removal, printing some information about any \
+                            entries that would be removed but not actually outputting the result", 
+                            required=False, action="store_true")
+    arg_parser.add_argument("--remove-empty-hosts", help="Entirely remove a host from result if all of its respective \
+                            findings are deleted", required=False, action="store_true", default=False)
 
 def handle(args):
     remove_by = [fp.value for fp in FilterParameters if fp.name == args.remove_by][0]
@@ -43,7 +55,9 @@ def handle(args):
     dry_run = args.dry_run
     remove_empty_hosts = args.remove_empty_hosts
 
-    if case_sensitive and remove_by in (FilterParameters.plugin_id.value, FilterParameters.finding_port.value, FilterParameters.finding_service.value):
+    if case_sensitive and remove_by in (FilterParameters.plugin_id.value, 
+                                        FilterParameters.finding_port.value, 
+                                        FilterParameters.finding_service.value):
         logger.warning(f"'Case sensitive' flag doesn't have any effect on filter type {remove_by}")
 
     if args.filter_value:
@@ -68,7 +82,8 @@ def handle(args):
                 continue
 
             if negate:
-                any_match = check_findingvalue_in_fvlist_negate(remove_by, filter_value_list, finding_value, case_sensitive)
+                any_match = check_findingvalue_in_fvlist_negate(remove_by, filter_value_list, 
+                                                                finding_value, case_sensitive)
             else:
                 any_match = check_findingvalue_in_fvlist(remove_by, filter_value_list, finding_value, case_sensitive)
 
