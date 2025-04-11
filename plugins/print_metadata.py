@@ -25,6 +25,12 @@ def insert_subparser(subparser):
     arg_parser.set_defaults(handler=handle)
     arg_parser.set_defaults(parser=PLUGIN_NAME)
 
+    arg_parser.add_argument("--no-scan-policy", "-nspo", help="Exclude Scan Policy section", default=False, action="store_true")
+    arg_parser.add_argument("--no-server-preferences", "-nspr", help="Exclude Server Preferences section", default=False, action="store_true")
+    arg_parser.add_argument("--no-plugin-preferences", "-nppr", help="Exclude Plugin Preferences section", default=False, action="store_true")
+    arg_parser.add_argument("--no-family-section", "-nfse", help="Exclude Family Section", default=False, action="store_true")
+    arg_parser.add_argument("--no-indiv-plugin-section", "-nips", help="Exclude Individual Plugin Section", default=False, action="store_true")
+
 def handle(args):
     res = get_metadata_from_file(args)
 
@@ -34,27 +40,27 @@ def get_metadata_from_file(args):
     res = dict()
     context = get_xml_context_from_file(args, tag=[msn.value for msn in MetadataSectionNames])
     for _, section in context:
-        if section.tag == MetadataSectionNames.policy.value:
+        if not args.no_scan_policy and section.tag == MetadataSectionNames.policy.value:
             print("===TOP LEVEL SCAN POLICY===")
             res[MetadataSectionNames.policy.value] = _parse_policy(section, args)
             print()
 
-        if section.tag == MetadataSectionNames.server_preferences.value:
+        elif not args.no_server_preferences and section.tag == MetadataSectionNames.server_preferences.value:
             print("===SERVER PREFERENCES===")
             res[MetadataSectionNames.server_preferences.value] =_parse_server_preferences(section, args)
             print()
 
-        elif section.tag == MetadataSectionNames.plugins_preferences.value:
+        elif not args.no_plugin_preferences and section.tag == MetadataSectionNames.plugins_preferences.value:
             print("===PLUGIN PREFERENCES===")
             res[MetadataSectionNames.plugins_preferences.value] = _parse_plugins_preferences(section, args)
             print()
 
-        elif section.tag == MetadataSectionNames.family_section.value:
+        elif not args.no_family_section and section.tag == MetadataSectionNames.family_section.value:
             print("===FAMILY SECTION===")
             res[MetadataSectionNames.family_section.value] = _parse_family_selection(section, args)
             print()
 
-        elif section.tag == MetadataSectionNames.individual_plugin_selection.value:
+        elif not args.no_indiv_plugin_section and section.tag == MetadataSectionNames.individual_plugin_selection.value:
             print("===INDIVIDUAL PLUGIN SELECTION===")
             res[MetadataSectionNames.individual_plugin_selection.value] = _parser_individual_plugin_selection(section, args)
             print()
@@ -72,7 +78,10 @@ def _parse_server_preferences(ctx, args):
         preference_name = preference_elem.find("name").text
         preference_value = preference_elem.find("value").text
         server_prefs[preference_name] = preference_value
-        print(f"{preference_name}: {preference_value}")
+
+    for k in sorted(server_prefs, key=lambda x: x.lower()):
+        print(f"{k}: {server_prefs[k]}")
+
     return server_prefs
 
 def _parse_plugins_preferences(ctx, args):
@@ -97,10 +106,11 @@ def _parse_plugins_preferences(ctx, args):
         )
         plugin_prefs.append(item_dict)
 
-        print(f"Plugin: {plugin_name} (ID: {plugin_id})")
-        print(f"Preference Name: {preference_name} (preference type: {preference_type})")
-        print(f"Preference Value: {preference_values}")
-        print(f"Selected Value: {selected_value}")
+    for pp in sorted(plugin_prefs, key=lambda x: x['pluginName']):
+        print(f"Plugin: {pp['pluginName']} (ID: {pp['pluginId']})")
+        print(f"Preference Name: {pp['preferenceName']} (preference type: {pp['preferenceType']})")
+        print(f"Preference Value: {pp['preferenceValues']}")
+        print(f"Selected Value: {pp['selectedValue']}")
         print()
     
     return  plugin_prefs
@@ -110,9 +120,10 @@ def _parse_family_selection(ctx, args):
     for _, family_elem in ET.iterwalk(ctx, tag="FamilyItem"):
         family_name = family_elem.find("FamilyName").text
         status = family_elem.find("status")
-
         family_selections[family_name] = status
-        print(f"{family_name}: {status}")
+
+    for k in sorted(family_selections, key=lambda x: x.lower()):
+        print(f"{k}: {family_selections[k]}")
 
     return family_selections
 
@@ -125,15 +136,16 @@ def _parser_individual_plugin_selection(ctx, args):
         status = indiv_elem.find("Status").text
 
         plugin_dict = dict(
-            PluginId=plugin_id,
-            PluginName=plugin_name,
-            PluginFamily=plugin_family,
-            PluginStatus=status            
+            pluginId=plugin_id,
+            pluginName=plugin_name,
+            pluginFamily=plugin_family,
+            pluginStatus=status            
         )
         individual_selections.append(plugin_dict)
 
-        print(f"Plugin Name: {plugin_name} (ID: {plugin_id}) (family: {plugin_family})")
-        print(f"Status: {status}")
+    for iSection in sorted(individual_selections, key=lambda x: x['pluginName']):
+        print(f"Plugin Name: {iSection['pluginName']} (ID: {iSection['pluginId']}) (family: {iSection['pluginFamily']})")
+        print(f"Status: {iSection['pluginStatus']}")
         print()
 
     return individual_selections

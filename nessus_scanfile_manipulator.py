@@ -42,12 +42,12 @@ if __name__ == "__main__":
     else:
         log_level = logging.WARN
 
-    for package in PACKAGE_DIRS:
+    for package in PACKAGE_DIRS:  # TODO? there's a better way to do this
             package_logger = logging.getLogger(package)
             package_logger.setLevel(log_level)
             package_logger.addHandler(root_handler)
 
-    # TODO check that infile (and outfile, if provided) is readable/writable
+    # TODO? check that infile (and outfile, if provided) is readable/writable
 
     logger.debug(f"Loaded plugins: {[plugin.PLUGIN_NAME for plugin in loaded_plugins]}")
     logger.debug(f"Command-line arguments: {args}")

@@ -27,7 +27,7 @@ def insert_subparser(subparser):
     mutual_ex_parser2.add_argument("--by-ip", help="Designate hosts by their IP only", 
                                    action="store_true", default=False)
     mutual_ex_parser2.add_argument("--by-fqdn", 
-                                   help="Designate hosts by FQDN only (falls back to IP no FQDN reported)", 
+                                   help="Designate hosts by FQDN only (falls back to IP if no FQDN is reported)", 
                                    action="store_true", default=False)
 
 def handle(args):
