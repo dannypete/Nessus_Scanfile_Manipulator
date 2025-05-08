@@ -59,7 +59,8 @@ def get_compliance_vulns(args):
             plugin_name = finding.get("pluginName")
             plugin_id = finding.get("pluginID")
             severity = int(finding.get("severity"))
-            if finding.get("pluginFamily") != "Policy Compliance":
+            is_compliance = finding.find("compliance")
+            if finding.get("pluginFamily") != "Policy Compliance" or not is_compliance is not None:
                 logger.info(f"Skipping finding named {plugin_name} for host {name}")
                 continue
             else:
