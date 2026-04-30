@@ -25,6 +25,9 @@ def insert_subparser(subparser):
     arg_parser.set_defaults(handler=handle)
     arg_parser.set_defaults(parser=PLUGIN_NAME)
 
+    arg_parser.add_argument("--include-pluginset", "-ip", help="Include 'plugin_set' output under SERVER PREFERENCES" \
+        " section. Let out by default as it clutters the output", default=False, action="store_true")
+
     arg_parser.add_argument("--no-scan-policy", "-nspo", help="Exclude Scan Policy section", default=False, action="store_true")
     arg_parser.add_argument("--no-server-preferences", "-nspr", help="Exclude Server Preferences section", default=False, action="store_true")
     arg_parser.add_argument("--no-plugin-preferences", "-nppr", help="Exclude Plugin Preferences section", default=False, action="store_true")
@@ -77,6 +80,10 @@ def _parse_server_preferences(ctx, args):
     for _, preference_elem in ET.iterwalk(ctx, tag="preference"):
         preference_name = preference_elem.find("name").text
         preference_value = preference_elem.find("value").text
+        if preference_name == "plugin_set" and not args.include_pluginset:
+            plugin_count = len(preference_value.split(";"))
+            preference_value = f"<<TRUNCATED--Number of plugins enabled: {plugin_count}. Use argument --include-pluginset to see full list.>>"
+        
         server_prefs[preference_name] = preference_value
 
     for k in sorted(server_prefs, key=lambda x: x.lower()):
