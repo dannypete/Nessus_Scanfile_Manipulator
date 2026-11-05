@@ -57,7 +57,8 @@ def get_unique_vulns(args):
 
         name = finding['host_name']
 
-        socket_addr = name + ":" + str((finding['port'] or ''))
+        port = finding.get('port')
+        socket_addr = name + (f':{port}' if port != 0 else '')
 
         if finding['plugin_id'] in vulns_by_id:
             vulns_by_id[finding['plugin_id']]['affected_hosts'].add(socket_addr)
