@@ -49,50 +49,39 @@ def handle(args):
     return res
 
 def get_unique_vulns(args):
-    res = dict()
-    context = get_xml_context_from_file(args, tag="ReportHost")
-    for _, host in context:
-        hostprops = host.find("HostProperties")
-        _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
-        _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
-        name = _fqdn if (args.by_fqdn and _fqdn is not None) else _ip  # custom behavior here so it is more understandable in the output
-        for _, finding in ET.iterwalk(host, tag="ReportItem"):
-            port = finding.get("port")
-            plugin_id = finding.get("pluginID")
-            plugin_name = finding.get("pluginName").replace("\n", "\\n")
-            severity = finding.get("severity")
 
-            logger.debug(f"Finding {plugin_name} (severity={severity}, ID={plugin_id}) for {name} affecting port {port}")
+    vuln_details = _parse_vuln_details(args)
 
-            if plugin_id in res:
-                res[plugin_id]["affected_hosts"].add(f"{name}{':' + port if int(port) != 0 else ''}")
-            
-            else:
-                description = finding.find("description").text.replace("\n", "\\n")
-                solution = finding.find("solution").text.replace("\n", "\\n")
-                risk = finding.find("risk_factor").text
-                plugin_type = finding.find("plugin_type").text
-                res[plugin_id] = {
-                    "plugin_name": plugin_name,
-                    "plugin_type": plugin_type,
-                    "description": description,
-                    "solution": solution,
-                    "risk": risk,
-                    "severity": int(severity),
-                    "affected_hosts": set([f"{name}{':' + port if int(port) != 0 else ''}"])
-                }
-                finding.clear()
-        host.clear()
+    vulns_by_id = dict()
+    for finding in vuln_details:
 
-    sorted_keys = sorted(res.keys(), key=lambda x: (-res[x]["severity"], res[x]['plugin_name']))
+        name = finding['host_name']
+
+        socket_addr = name + ":" + str((finding['port'] or ''))
+
+        if finding['plugin_id'] in vulns_by_id:
+            vulns_by_id[finding['plugin_id']]['affected_hosts'].add(socket_addr)
+
+        else:
+            vulns_by_id[finding['plugin_id']] = {
+                "plugin_name": finding['plugin_name'],
+                "plugin_type": finding['plugin_type'],
+                "description": finding['description'],
+                "solution": finding['solution'],
+                "risk": finding['risk'],
+                "severity": int(finding['severity']),
+                "affected_hosts": set([socket_addr])
+            }
+
+    sorted_keys = sorted(vulns_by_id.keys(), key=lambda x: (-vulns_by_id[x]["severity"], vulns_by_id[x]['plugin_name']))
     sorted_res = []
     for k in sorted_keys:
         if args.by_ip:
             sorted_res.append(
-                f"Plugin_Name: {res[k]['plugin_name']}\nSeverity: {res[k]['severity']}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts'], key=lambda x: ipaddress.ip_address(x.split(':')[0])))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {k}\nPlugin Type: {res[k]['plugin_type']}\n")
+                f"Plugin_Name: {vulns_by_id[k]['plugin_name']}\nSeverity: {vulns_by_id[k]['severity']}\nRisk: {vulns_by_id[k]['risk']}\nAffected_Hosts: {','.join(sorted(vulns_by_id[k]['affected_hosts'], key=lambda x: ipaddress.ip_address(x.split(':')[0])))}\nDescription: {vulns_by_id[k]['description']}\nSolution: {vulns_by_id[k]['solution']}\nPlugin ID: {k}\nPlugin Type: {vulns_by_id[k]['plugin_type']}\n")
         else:
             sorted_res.append(
-                f"Plugin_Name: {res[k]['plugin_name']}\nSeverity: {res[k]['severity']}\nRisk: {res[k]['risk']}\nAffected_Hosts: {','.join(sorted(res[k]['affected_hosts']))}\nDescription: {res[k]['description']}\nSolution: {res[k]['solution']}\nPlugin ID: {k}\nPlugin Type: {res[k]['plugin_type']}\n")
+                f"Plugin_Name: {vulns_by_id[k]['plugin_name']}\nSeverity: {vulns_by_id[k]['severity']}\nRisk: {vulns_by_id[k]['risk']}\nAffected_Hosts: {','.join(sorted(vulns_by_id[k]['affected_hosts']))}\nDescription: {vulns_by_id[k]['description']}\nSolution: {vulns_by_id[k]['solution']}\nPlugin ID: {k}\nPlugin Type: {vulns_by_id[k]['plugin_type']}\n")
 
     return "\n".join(sorted_res)
 
@@ -103,21 +92,15 @@ def get_vulns_per_host(args):
     host_vulns = dict()
     for vuln in vuln_details:
 
-        identifier = None
-        if args.by_ip:
-            identifier = vuln['ip']
-        elif args.by_fqdn:
-            identifier = vuln['fqdn'] or vuln['name'] or vuln['ip']
-        else:
-            identifier = vuln['name'] or vuln['ip']
-
+        identifier = vuln['host_name']
+        
         if identifier in host_vulns:
             host_vulns[identifier].append(vuln)
         else:
             host_vulns[identifier] = [vuln]
 
     res = ""
-    for host in sorted(host_vulns.keys()):
+    for host in sorted(host_vulns.keys()):  # TODO sorts IPs naively, not correctly
         res += f"ReportHost: \"{host}\"\n"
         for finding in sorted(host_vulns[host], key=lambda x: (-x['severity'], x['service'], x['port'], x['plugin_name'])):
             res += f"\tSeverity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" ID=\"{finding['plugin_id']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\"\n"
@@ -131,16 +114,13 @@ def get_all_vulns(args):
     vuln_details = _parse_vuln_details(args)
 
     if args.by_ip:
-        vuln_details = list(sorted(vuln_details, key=lambda x: (-x['severity'], x['plugin_name'], ipaddress.ip_address(x['ip']) if \
-                                                    x['ip'] is not None else ipaddress.ip_address('1.1.1.1'), x['port'])))
-    elif args.by_fqdn:
-        vuln_details = list(sorted(vuln_details, key=lambda x: (-x['severity'], x['plugin_name'], x['ip'] or x['name'], x['port'])))
+        vuln_details = list(sorted(vuln_details, key=lambda x: (-x['severity'], x['plugin_name'], ipaddress.ip_address(x['ip']), x['port'])))
     else:
-        vuln_details = list(sorted(vuln_details, key=lambda x: (-x['severity'], x['plugin_name'], x['name'] or x['ip'], x['port'])))
+        vuln_details = list(sorted(vuln_details, key=lambda x: (-x['severity'], x['plugin_name'], x['host_name'], x['port'])))
 
     res = ""
     for finding in vuln_details:
-        res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" ID=\"{finding['plugin_id']}\" Host=\"{finding['name']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\" Plugin_Output=\"{finding['plugin_output']}\"\n"
+        res += f"Severity=\"{finding['severity']}\" Finding=\"{finding['plugin_name']}\" ID=\"{finding['plugin_id']}\" Host=\"{finding['host_name']}\" Port=\"{finding['protocol'] + ':' + str(finding['port'])}\" Service=\"{finding['service']}\" Plugin_Output=\"{finding['plugin_output']}\"\n"
 
     return res
 
@@ -152,16 +132,11 @@ def _parse_vuln_details(args):
     for _, host in context:
         hostprops = host.find("HostProperties")
 
-        name = None
         _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
         _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
         _name = host.get("name", None)
-        if args.by_ip:
-            name = _ip
-        elif args.by_fqdn:
-            name = _fqdn or _ip
-        else:
-            name = _name or _fqdn or _ip
+
+        name = get_host_displayname(_name, _ip, _fqdn, args.by_ip, args.by_fqdn)
 
         for _, finding in ET.iterwalk(host, tag="ReportItem"):
             port = finding.get("port")
@@ -172,6 +147,8 @@ def _parse_vuln_details(args):
             plugin_type = finding.find("plugin_type").text
             risk = finding.find("risk_factor").text
             severity = finding.get("severity")
+            description = finding.get("description")
+            solution = finding.get("solution")
             plugin_output = finding.find("plugin_output").text.replace("\n", "\\n") if finding.find("plugin_output") is not None else ''
 
             logger.debug(f"Finding {plugin_name} (severity={severity}) for {name} affecting port {port}")
@@ -185,12 +162,14 @@ def _parse_vuln_details(args):
                     "plugin_name": plugin_name,
                     "plugin_type": plugin_type,
                     "severity": int(severity),
+                    "description": description,
+                    "solution": solution,
                     "port": int(port),
                     "protocol": protocol,
                     "service": service,
                     "ip": _ip,
                     "fqdn": _fqdn,
-                    "name": name,
+                    "reported_name": _name,
                     "plugin_output": plugin_output,
                     "risk": risk,
                 }
@@ -199,6 +178,6 @@ def _parse_vuln_details(args):
         host.clear()
 
     return list(sorted(details, key=lambda x: get_host_displayname(
-        x['name'], x['ip'], x['name'], args.by_ip, args.by_fqdn)))
+        x['reported_name'], x['ip'], x['fqdn'], args.by_ip, args.by_fqdn)))
 
 
