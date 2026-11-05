@@ -3,7 +3,7 @@ import logging
 
 import lxml.etree as ET
 
-from common.utils import get_nessus_hostproperty_by_name, get_xml_context_from_file
+from common.utils import get_nessus_hostproperty_by_name, get_xml_context_from_file, get_host_displayname
 
 PLUGIN_NAME = __name__.rsplit(".", 1)[1]
 
@@ -22,7 +22,7 @@ def insert_subparser(subparser):
     mutual_ex_parser.add_argument("--socket-addrs", help="Print all socket addresses (i.e. \"10.20.30.40:8080\")", 
                                   action="store_true")
     mutual_ex_parser.add_argument("--host-ports", 
-                                  help="Print open ports per host (e.g. \"10.20.30.40: UDP/137,TCP/443,TCP/8080\")", 
+                                  help="Print open ports per host (e.g. \"10.20.30.40: 137/udp,443/tcp,8080/tcp\")", 
                                   action="store_true")
 
     mutual_ex_parser2 = arg_parser.add_mutually_exclusive_group()
@@ -49,64 +49,68 @@ def handle(args):
     return res
 
 def get_host_details(args):
-    res = dict()
-    context = get_xml_context_from_file(args, tag="ReportHost")
-    for _, host in context:
-        hostprops = host.find("HostProperties")
-        _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
-        _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
-        name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
-        tags = dict()
-        for tag in hostprops:
-            tags[tag.get("name").title()] = tag.text
-        host_res = f"Report Host Name: {name}\n"
-        for k in sorted(tags.keys()):
-            host_res += f"\t{k}: {tags[k]}\n"
-        res[name] = host_res
-        host.clear()
+    host_details = _parse_host_details(args)
 
-    if args.by_ip:
-        sorted_res = [res[k] for k in sorted(res.keys(), key=lambda x: ipaddress.ip_address(x))]
-    else:
-        sorted_res = [res[k] for k in sorted(res.keys())]
+    res = ""
+    for host in host_details:
+        name = get_host_displayname(host['name'], host['ip_address'], host['name'], args.by_ip, args.by_fqdn)
+        res += f"ReportHost: {name}\n"
+        for key in sorted(host.keys()):
 
-    return "\n".join(sorted_res)
+            if key == 'raw_host_properties':
+                continue
+
+            res += f"\t{key}: {str(host[key])}\n"
+        res += f"\t{'raw_host_properties'}: {str(host['raw_host_properties'])}\n"
+        res += "\n"
+
+    return res
 
 def get_socket_addresses(args):
-    res = set()
-    context = get_xml_context_from_file(args, tag="ReportHost")
-    for _, host in context:
-        hostprops = host.find("HostProperties")
-        _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
-        _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
-        name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
-        for _, finding in ET.iterwalk(host, tag="ReportItem"):
-            port = finding.get("port")
-            if int(port) == 0:
-                plugin_name = finding.get("pluginName")
-                logger.debug(f"Finding \"{plugin_name}\" does not have a port. Skipping it.")
-                finding.clear()
-                continue
-            res.add(f"{name}:{port}")
-            finding.clear()
-        host.clear()
+    host_details = _parse_host_details(args)
 
-    if args.by_ip:
-        sorted_res = sorted(res, key=lambda x: (ipaddress.ip_address(x.split(":")[0]), int(x.split(":")[1])))
-    else:
-        sorted_res = sorted(res, key=lambda x: (x.split(":")[0], int(x.split(":")[1])))
-
-    return "\n".join(sorted_res)
+    res = ""
+    for host in host_details:
+        for port in host["open_ports"]:
+            name = get_host_displayname(host['name'], host['ip_address'], host['name'], args.by_ip, args.by_fqdn)
+            res += f"{name}:{port}\n"
+    return res
+    
 
 def get_ports_by_host(args):
-    res = dict()
+    host_details = _parse_host_details(args)
+
+    res = ""
+    for host in host_details:
+        name = get_host_displayname(host['name'], host['ip_address'], host['name'], args.by_ip, args.by_fqdn)
+        res += f"{name}: {','.join(host["open_ports"])}\n"
+    return res
+
+
+def _parse_host_details(args):
+
+    def sort_ports(item):
+        item_port, item_protocol = item.split("/")
+        return (item_port, item_protocol)
+
+    details = []
+
     context = get_xml_context_from_file(args, tag="ReportHost")
     for _, host in context:
         hostprops = host.find("HostProperties")
-        _ip = get_nessus_hostproperty_by_name(hostprops, "host-ip")
-        _fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
-        name = get_host_displayname(_ip, _fqdn, args.by_ip, args.by_fqdn)
+
+        ip = get_nessus_hostproperty_by_name(hostprops, "host-ip", None)
+        fqdn = get_nessus_hostproperty_by_name(hostprops, "host-fqdn", None)
+        name = host.get("name", None)
+
+        hostprop_dict = dict()
+        for tag in hostprops:
+            hostprop_dict[tag.get("name").lower()] = tag.text
+
+        finding_count = 0
+        open_ports = set()
         for _, finding in ET.iterwalk(host, tag="ReportItem"):
+            finding_count += 1
             port = finding.get("port")
             protocol = finding.get("protocol")
             if int(port) == 0:
@@ -114,29 +118,24 @@ def get_ports_by_host(args):
                 logger.debug(f"Finding \"{plugin_name}\" does not have a port. Skipping it.")
                 finding.clear()
                 continue
+            open_ports.add(f"{port}/{protocol}")
 
-            if name in res:
-                res[name].add(f"{protocol.upper()}/{port}")
-
-            else:
-                res[name] = {f"{protocol.upper()}/{port}"}
-            finding.clear()
+        details.append(
+            {
+                "name" : name,
+                "fqdn": fqdn,
+                "ip_address": ip,
+                "rdns": hostprop_dict.get("host-rdp", None),
+                "credentialed_scan": hostprop_dict.get("credentialed_scan", None),
+                "scan_start": hostprop_dict.get("host_start", None),
+                "scan_end": hostprop_dict.get("host_end", None),
+                "total_report_findings": finding_count,
+                "total_open_ports": len(open_ports),
+                "open_ports": list(sorted(open_ports, key=sort_ports)),
+                "raw_host_properties": hostprop_dict
+            }
+        )
         host.clear()
 
-    if args.by_ip:
-        sorted_keys = sorted(res.keys(), key=lambda x: ipaddress.ip_address(x))
-    else:
-        sorted_keys = sorted(res.keys())
-    sorted_res = []
-    for k in sorted_keys:
-        sorted_ports = sorted(res[k], key=lambda x: int(x.split("/")[1]))
-        sorted_res.append(f"{k}\t{','.join(sorted_ports)}")
-
-    return "\n".join(sorted_res)
-
-def get_host_displayname(ip, fqdn, by_ip, by_fqdn):
-    if by_ip:
-        return ip
-    elif by_fqdn:
-        return fqdn or ip
-    return f"{ip} ({fqdn})"
+    return list(sorted(details, key=lambda x: get_host_displayname(
+        x['name'], x['ip_address'], x['name'], args.by_ip, args.by_fqdn)))

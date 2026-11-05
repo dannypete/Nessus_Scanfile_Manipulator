@@ -4,8 +4,6 @@ import logging
 import os
 import sys
 
-sys.stdin
-
 import plugins
 
 PACKAGE_DIRS = [__name__, "plugins", "common"]
